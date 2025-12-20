@@ -32,7 +32,6 @@ async fn main() -> io::Result<()> {
         } else {
             get_multiline_input()?
         };
-
         if query.is_empty() {
             // If user enters empty string at prompt, maybe exit or loop?
             // Let's assume exit if it was interactive prompt
@@ -390,21 +389,24 @@ impl InputState {
             .rposition(|&c| c == '\n')
             .map(|i| i + 1)
             .unwrap_or(0);
-        
+
         // Find position in previous line that matches visual offset
         let mut current_offset = 0;
         let mut target_cursor = prev_line_start;
-        
-        for (i, &c) in self.buffer[prev_line_start..prev_line_end].iter().enumerate() {
+
+        for (i, &c) in self.buffer[prev_line_start..prev_line_end]
+            .iter()
+            .enumerate()
+        {
             let w = UnicodeWidthChar::width(c).unwrap_or(0);
             if current_offset + w > col_offset {
-                 // Closest match
-                 break;
+                // Closest match
+                break;
             }
             current_offset += w;
             target_cursor = prev_line_start + i + 1;
         }
-        
+
         self.cursor = target_cursor;
     }
 
@@ -415,7 +417,7 @@ impl InputState {
         }
 
         let (start, _) = self.current_line_range();
-        
+
         // Calculate visual offset of current cursor relative to line start
         let mut col_offset = 0;
         for &c in &self.buffer[start..self.cursor] {
@@ -428,15 +430,18 @@ impl InputState {
             .position(|&c| c == '\n')
             .map(|i| next_line_start + i)
             .unwrap_or(self.buffer.len());
-            
+
         // Find position in next line that matches visual offset
         let mut current_offset = 0;
         let mut target_cursor = next_line_start;
-        
-        for (i, &c) in self.buffer[next_line_start..next_line_end].iter().enumerate() {
+
+        for (i, &c) in self.buffer[next_line_start..next_line_end]
+            .iter()
+            .enumerate()
+        {
             let w = UnicodeWidthChar::width(c).unwrap_or(0);
-             if current_offset + w > col_offset {
-                 break;
+            if current_offset + w > col_offset {
+                break;
             }
             current_offset += w;
             target_cursor = next_line_start + i + 1;
