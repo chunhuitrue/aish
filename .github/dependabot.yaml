@@ -1,22 +1,22 @@
 # https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference#package-ecosystem-
 
-version: 2
-updates:
-  - package-ecosystem: cargo
-    directories:
-      - aish-rs
-      - aish-rs/*
-    schedule:
-      interval: weekly
-  - package-ecosystem: devcontainers
-    directory: /
-    schedule:
-      interval: weekly
-  - package-ecosystem: github-actions
-    directory: /
-    schedule:
-      interval: weekly
-  - package-ecosystem: rust-toolchain
-    directory: aish-rs
-    schedule:
-      interval: weekly
+# version: 2
+# updates:
+#   - package-ecosystem: cargo
+#     directories:
+#       - aish-rs
+#       - aish-rs/*
+#     schedule:
+#       interval: weekly
+#   - package-ecosystem: devcontainers
+#     directory: /
+#     schedule:
+#       interval: weekly
+#   - package-ecosystem: github-actions
+#     directory: /
+#     schedule:
+#       interval: weekly
+#   - package-ecosystem: rust-toolchain
+#     directory: aish-rs
+#     schedule:
+#       interval: weekly
