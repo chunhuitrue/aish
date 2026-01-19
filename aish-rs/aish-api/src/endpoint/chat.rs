@@ -136,9 +136,6 @@ impl Stream for AggregatedStream {
 
                     return Poll::Ready(Some(Ok(ResponseEvent::OutputItemDone(item))));
                 }
-                Poll::Ready(Some(Ok(ResponseEvent::RateLimits(snapshot)))) => {
-                    return Poll::Ready(Some(Ok(ResponseEvent::RateLimits(snapshot))));
-                }
                 Poll::Ready(Some(Ok(ResponseEvent::Completed {
                     response_id,
                     token_usage,

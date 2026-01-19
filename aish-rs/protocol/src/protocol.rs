@@ -895,35 +895,9 @@ impl TokenUsageInfo {
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema, TS)]
 pub struct TokenCountEvent {
     pub info: Option<TokenUsageInfo>,
-    pub rate_limits: Option<RateLimitSnapshot>,
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, JsonSchema, TS)]
-pub struct RateLimitSnapshot {
-    pub primary: Option<RateLimitWindow>,
-    pub secondary: Option<RateLimitWindow>,
-    pub credits: Option<CreditsSnapshot>,
-    pub plan_type: Option<crate::account::PlanType>,
-}
 
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, JsonSchema, TS)]
-pub struct RateLimitWindow {
-    /// Percentage (0-100) of the window that has been consumed.
-    pub used_percent: f64,
-    /// Rolling window duration, in minutes.
-    #[ts(type = "number | null")]
-    pub window_minutes: Option<i64>,
-    /// Unix timestamp (seconds since epoch) when the window resets.
-    #[ts(type = "number | null")]
-    pub resets_at: Option<i64>,
-}
-
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, JsonSchema, TS)]
-pub struct CreditsSnapshot {
-    pub has_credits: bool,
-    pub unlimited: bool,
-    pub balance: Option<String>,
-}
 
 // Includes prompts, tools and space to call compact.
 const BASELINE_TOKENS: i64 = 12000;

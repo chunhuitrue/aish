@@ -2,8 +2,6 @@ use crate::exec_command::relativize_to_home;
 use crate::text_formatting;
 use aish_core::config::Config;
 use aish_core::project_doc::discover_project_doc_paths;
-use chrono::DateTime;
-use chrono::Local;
 use std::path::Path;
 use unicode_width::UnicodeWidthStr;
 
@@ -143,11 +141,4 @@ pub(crate) fn format_directory_display(directory: &Path, max_width: Option<usize
     formatted
 }
 
-pub(crate) fn format_reset_timestamp(dt: DateTime<Local>, captured_at: DateTime<Local>) -> String {
-    let time = dt.format("%H:%M").to_string();
-    if dt.date_naive() == captured_at.date_naive() {
-        time
-    } else {
-        format!("{time} on {}", dt.format("%-d %b"))
-    }
-}
+

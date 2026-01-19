@@ -1,7 +1,6 @@
 use aish_api::AuthProvider as ApiAuthProvider;
 use aish_api::TransportError;
 use aish_api::error::ApiError;
-use aish_api::rate_limits::parse_rate_limit;
 use chrono::DateTime;
 use chrono::Utc;
 use http::HeaderMap;
@@ -48,7 +47,6 @@ pub(crate) fn map_api_error(err: ApiError) -> AishErr {
                 } else if status == http::StatusCode::TOO_MANY_REQUESTS {
                     if let Ok(err) = serde_json::from_str::<UsageErrorResponse>(&body_text) {
                         if err.error.error_type.as_deref() == Some("usage_limit_reached") {
-                            let rate_limits = headers.as_ref().and_then(parse_rate_limit);
                             let resets_at = err
                                 .error
                                 .resets_at
@@ -56,7 +54,6 @@ pub(crate) fn map_api_error(err: ApiError) -> AishErr {
                             return AishErr::UsageLimitReached(UsageLimitReachedError {
                                 plan_type: err.error.plan_type,
                                 resets_at,
-                                rate_limits,
                             });
                         } else if err.error.error_type.as_deref() == Some("usage_not_included") {
                             return AishErr::UsageNotIncluded;
@@ -82,7 +79,6 @@ pub(crate) fn map_api_error(err: ApiError) -> AishErr {
             TransportError::Timeout => AishErr::Timeout,
             TransportError::Network(msg) | TransportError::Build(msg) => AishErr::Stream(msg, None),
         },
-        ApiError::RateLimit(msg) => AishErr::Stream(msg, None),
     }
 }
 

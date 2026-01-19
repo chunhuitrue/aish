@@ -16,8 +16,9 @@ use aish_core::protocol::AgentReasoningDeltaEvent;
 use aish_core::protocol::AgentReasoningEvent;
 use aish_core::protocol::ApplyPatchApprovalRequestEvent;
 use aish_core::protocol::BackgroundEventEvent;
-use aish_core::protocol::CreditsSnapshot;
+
 use aish_core::protocol::Event;
+use aish_protocol::openai_models::ReasoningEffort as ReasoningEffortConfig;
 use aish_core::protocol::EventMsg;
 use aish_core::protocol::ExecApprovalRequestEvent;
 use aish_core::protocol::ExecCommandBeginEvent;
@@ -30,7 +31,7 @@ use aish_core::protocol::McpStartupUpdateEvent;
 use aish_core::protocol::Op;
 use aish_core::protocol::PatchApplyBeginEvent;
 use aish_core::protocol::PatchApplyEndEvent;
-use aish_core::protocol::RateLimitWindow;
+
 use aish_core::protocol::StreamErrorEvent;
 use aish_core::protocol::TaskCompleteEvent;
 use aish_core::protocol::TaskStartedEvent;
@@ -42,7 +43,7 @@ use aish_core::protocol::UndoStartedEvent;
 use aish_core::protocol::ViewImageToolCallEvent;
 use aish_core::protocol::WarningEvent;
 use aish_protocol::ConversationId;
-use aish_protocol::account::PlanType;
+
 use aish_protocol::parse_command::ParsedCommand;
 use aish_protocol::plan_tool::PlanItemArg;
 use aish_protocol::plan_tool::StepStatus;
@@ -75,18 +76,7 @@ async fn test_config() -> Config {
         .expect("config")
 }
 
-fn snapshot(percent: f64) -> RateLimitSnapshot {
-    RateLimitSnapshot {
-        primary: Some(RateLimitWindow {
-            used_percent: percent,
-            window_minutes: Some(60),
-            resets_at: None,
-        }),
-        secondary: None,
-        credits: None,
-        plan_type: None,
-    }
-}
+
 
 #[tokio::test]
 async fn resumed_initial_messages_render_history() {
@@ -155,7 +145,6 @@ async fn token_count_none_resets_context_indicator() {
         id: "token-before".into(),
         msg: EventMsg::TokenCount(TokenCountEvent {
             info: Some(make_token_info(pre_compact_tokens, context_window)),
-            rate_limits: None,
         }),
     });
     assert_eq!(chat.bottom_pane.context_window_percent(), Some(30));
@@ -164,7 +153,6 @@ async fn token_count_none_resets_context_indicator() {
         id: "token-cleared".into(),
         msg: EventMsg::TokenCount(TokenCountEvent {
             info: None,
-            rate_limits: None,
         }),
     });
     assert_eq!(chat.bottom_pane.context_window_percent(), None);
@@ -194,7 +182,6 @@ async fn context_indicator_shows_used_tokens_when_window_unknown() {
         id: "token-usage".into(),
         msg: EventMsg::TokenCount(TokenCountEvent {
             info: Some(token_info),
-            rate_limits: None,
         }),
     });
 
@@ -228,7 +215,7 @@ async fn helpers_are_available_and_do_not_panic() {
         initial_prompt: None,
         initial_images: Vec::new(),
         enhanced_keys_supported: false,
-        models_manager: conversation_manager.get_models_manager(),
+
         is_first_run: true,
         model_family,
     };
@@ -265,7 +252,7 @@ async fn make_chatwidget_manual(
         animations_enabled: cfg.animations,
         skills: None,
     });
-    let conversation_manager = Arc::new(ConversationManager::with_models_provider(
+    let _conversation_manager = Arc::new(ConversationManager::with_models_provider(
         AishAuth::from_api_key("test"),
         cfg.model_provider.clone(),
     ));
@@ -276,15 +263,11 @@ async fn make_chatwidget_manual(
         active_cell: None,
         config: cfg.clone(),
         model_family: ModelsManager::construct_model_family_offline(&resolved_model, &cfg),
-        models_manager: conversation_manager.get_models_manager(),
+
         session_header: SessionHeader::new(resolved_model.clone()),
         initial_user_message: None,
         token_info: None,
-        rate_limit_snapshot: None,
         plan_type: None,
-        rate_limit_warnings: RateLimitWarningState::default(),
-        rate_limit_switch_prompt: RateLimitSwitchPromptState::default(),
-        rate_limit_poller: None,
         stream_controller: None,
         running_commands: HashMap::new(),
         task_complete_pending: false,
@@ -361,234 +344,23 @@ fn make_token_info(total_tokens: i64, context_window: i64) -> TokenUsageInfo {
     }
 }
 
-#[tokio::test]
-async fn rate_limit_warnings_emit_thresholds() {
-    let mut state = RateLimitWarningState::default();
-    let mut warnings: Vec<String> = Vec::new();
 
-    warnings.extend(state.take_warnings(Some(10.0), Some(10079), Some(55.0), Some(299)));
-    warnings.extend(state.take_warnings(Some(55.0), Some(10081), Some(10.0), Some(299)));
-    warnings.extend(state.take_warnings(Some(10.0), Some(10081), Some(80.0), Some(299)));
-    warnings.extend(state.take_warnings(Some(80.0), Some(10081), Some(10.0), Some(299)));
-    warnings.extend(state.take_warnings(Some(10.0), Some(10081), Some(95.0), Some(299)));
-    warnings.extend(state.take_warnings(Some(95.0), Some(10079), Some(10.0), Some(299)));
 
-    assert_eq!(
-        warnings,
-        vec![
-            String::from(
-                "Heads up, you have less than 25% of your 5h limit left. Run /status for a breakdown."
-            ),
-            String::from(
-                "Heads up, you have less than 25% of your weekly limit left. Run /status for a breakdown.",
-            ),
-            String::from(
-                "Heads up, you have less than 5% of your 5h limit left. Run /status for a breakdown."
-            ),
-            String::from(
-                "Heads up, you have less than 5% of your weekly limit left. Run /status for a breakdown.",
-            ),
-        ],
-        "expected one warning per limit for the highest crossed threshold"
-    );
-}
 
-#[tokio::test]
-async fn test_rate_limit_warnings_monthly() {
-    let mut state = RateLimitWarningState::default();
-    let mut warnings: Vec<String> = Vec::new();
 
-    warnings.extend(state.take_warnings(Some(75.0), Some(43199), None, None));
-    assert_eq!(
-        warnings,
-        vec![String::from(
-            "Heads up, you have less than 25% of your monthly limit left. Run /status for a breakdown.",
-        ),],
-        "expected one warning per limit for the highest crossed threshold"
-    );
-}
 
-#[tokio::test]
-async fn rate_limit_snapshot_keeps_prior_credits_when_missing_from_headers() {
-    let (mut chat, _rx, _op_rx) = make_chatwidget_manual(None).await;
 
-    chat.on_rate_limit_snapshot(Some(RateLimitSnapshot {
-        primary: None,
-        secondary: None,
-        credits: Some(CreditsSnapshot {
-            has_credits: true,
-            unlimited: false,
-            balance: Some("17.5".to_string()),
-        }),
-        plan_type: None,
-    }));
-    let initial_balance = chat
-        .rate_limit_snapshot
-        .as_ref()
-        .and_then(|snapshot| snapshot.credits.as_ref())
-        .and_then(|credits| credits.balance.as_deref());
-    assert_eq!(initial_balance, Some("17.5"));
 
-    chat.on_rate_limit_snapshot(Some(RateLimitSnapshot {
-        primary: Some(RateLimitWindow {
-            used_percent: 80.0,
-            window_minutes: Some(60),
-            resets_at: Some(123),
-        }),
-        secondary: None,
-        credits: None,
-        plan_type: None,
-    }));
 
-    let display = chat
-        .rate_limit_snapshot
-        .as_ref()
-        .expect("rate limits should be cached");
-    let credits = display
-        .credits
-        .as_ref()
-        .expect("credits should persist when headers omit them");
 
-    assert_eq!(credits.balance.as_deref(), Some("17.5"));
-    assert!(!credits.unlimited);
-    assert_eq!(
-        display.primary.as_ref().map(|window| window.used_percent),
-        Some(80.0)
-    );
-}
 
-#[tokio::test]
-async fn rate_limit_snapshot_updates_and_retains_plan_type() {
-    let (mut chat, _rx, _op_rx) = make_chatwidget_manual(None).await;
 
-    chat.on_rate_limit_snapshot(Some(RateLimitSnapshot {
-        primary: Some(RateLimitWindow {
-            used_percent: 10.0,
-            window_minutes: Some(60),
-            resets_at: None,
-        }),
-        secondary: Some(RateLimitWindow {
-            used_percent: 5.0,
-            window_minutes: Some(300),
-            resets_at: None,
-        }),
-        credits: None,
-        plan_type: Some(PlanType::Plus),
-    }));
-    assert_eq!(chat.plan_type, Some(PlanType::Plus));
 
-    chat.on_rate_limit_snapshot(Some(RateLimitSnapshot {
-        primary: Some(RateLimitWindow {
-            used_percent: 25.0,
-            window_minutes: Some(30),
-            resets_at: Some(123),
-        }),
-        secondary: Some(RateLimitWindow {
-            used_percent: 15.0,
-            window_minutes: Some(300),
-            resets_at: Some(234),
-        }),
-        credits: None,
-        plan_type: Some(PlanType::Pro),
-    }));
-    assert_eq!(chat.plan_type, Some(PlanType::Pro));
 
-    chat.on_rate_limit_snapshot(Some(RateLimitSnapshot {
-        primary: Some(RateLimitWindow {
-            used_percent: 30.0,
-            window_minutes: Some(60),
-            resets_at: Some(456),
-        }),
-        secondary: Some(RateLimitWindow {
-            used_percent: 18.0,
-            window_minutes: Some(300),
-            resets_at: Some(567),
-        }),
-        credits: None,
-        plan_type: None,
-    }));
-    assert_eq!(chat.plan_type, Some(PlanType::Pro));
-}
 
-#[tokio::test]
-async fn rate_limit_switch_prompt_skips_when_on_lower_cost_model() {
-    let (mut chat, _, _) = make_chatwidget_manual(Some(NUDGE_MODEL_SLUG)).await;
 
-    chat.on_rate_limit_snapshot(Some(snapshot(95.0)));
 
-    assert!(matches!(
-        chat.rate_limit_switch_prompt,
-        RateLimitSwitchPromptState::Idle
-    ));
-}
 
-#[tokio::test]
-#[ignore = "requires built-in nudge model preset which has been removed"]
-async fn rate_limit_switch_prompt_shows_once_per_session() {
-    let (mut chat, _, _) = make_chatwidget_manual(Some("gpt-5")).await;
-
-    chat.on_rate_limit_snapshot(Some(snapshot(90.0)));
-    assert!(
-        chat.rate_limit_warnings.primary_index >= 1,
-        "warnings not emitted"
-    );
-    chat.maybe_show_pending_rate_limit_prompt();
-    assert!(matches!(
-        chat.rate_limit_switch_prompt,
-        RateLimitSwitchPromptState::Shown
-    ));
-
-    chat.on_rate_limit_snapshot(Some(snapshot(95.0)));
-    assert!(matches!(
-        chat.rate_limit_switch_prompt,
-        RateLimitSwitchPromptState::Shown
-    ));
-}
-
-#[tokio::test]
-async fn rate_limit_switch_prompt_respects_hidden_notice() {
-    let (mut chat, _, _) = make_chatwidget_manual(Some("gpt-5")).await;
-    chat.config.notices.hide_rate_limit_model_nudge = Some(true);
-
-    chat.on_rate_limit_snapshot(Some(snapshot(95.0)));
-
-    assert!(matches!(
-        chat.rate_limit_switch_prompt,
-        RateLimitSwitchPromptState::Idle
-    ));
-}
-
-#[tokio::test]
-#[ignore = "requires built-in nudge model preset which has been removed"]
-async fn rate_limit_switch_prompt_defers_until_task_complete() {
-    let (mut chat, _, _) = make_chatwidget_manual(Some("gpt-5")).await;
-
-    chat.bottom_pane.set_task_running(true);
-    chat.on_rate_limit_snapshot(Some(snapshot(90.0)));
-    assert!(matches!(
-        chat.rate_limit_switch_prompt,
-        RateLimitSwitchPromptState::Pending
-    ));
-
-    chat.bottom_pane.set_task_running(false);
-    chat.maybe_show_pending_rate_limit_prompt();
-    assert!(matches!(
-        chat.rate_limit_switch_prompt,
-        RateLimitSwitchPromptState::Shown
-    ));
-}
-
-#[tokio::test]
-#[ignore = "requires built-in nudge model preset which has been removed"]
-async fn rate_limit_switch_prompt_popup_snapshot() {
-    let (mut chat, _rx, _op_rx) = make_chatwidget_manual(Some("gpt-5")).await;
-
-    chat.on_rate_limit_snapshot(Some(snapshot(92.0)));
-    chat.maybe_show_pending_rate_limit_prompt();
-
-    let popup = render_bottom_popup(&chat, 80);
-    assert_snapshot!("rate_limit_switch_prompt_popup", popup);
-}
 
 // (removed experimental resize snapshot test)
 

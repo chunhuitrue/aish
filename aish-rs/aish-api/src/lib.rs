@@ -3,7 +3,6 @@ pub mod common;
 pub mod endpoint;
 pub mod error;
 pub mod provider;
-pub mod rate_limits;
 pub mod requests;
 pub mod sse;
 

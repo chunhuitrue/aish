@@ -3,7 +3,6 @@ use aish_protocol::config_types::ReasoningSummary as ReasoningSummaryConfig;
 use aish_protocol::config_types::Verbosity as VerbosityConfig;
 use aish_protocol::models::ResponseItem;
 use aish_protocol::openai_models::ReasoningEffort as ReasoningEffortConfig;
-use aish_protocol::protocol::RateLimitSnapshot;
 use aish_protocol::protocol::TokenUsage;
 use futures::Stream;
 use serde::Serialize;
@@ -58,7 +57,6 @@ pub enum ResponseEvent {
     ReasoningSummaryPartAdded {
         summary_index: i64,
     },
-    RateLimits(RateLimitSnapshot),
 }
 
 #[derive(Debug, Serialize, Clone)]

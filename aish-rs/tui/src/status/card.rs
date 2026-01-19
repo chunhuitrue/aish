@@ -25,13 +25,6 @@ use super::format::truncate_line_to_width;
 use super::helpers::compose_agents_summary;
 use super::helpers::compose_model_display;
 use super::helpers::format_tokens_compact;
-use super::rate_limits::RateLimitSnapshotDisplay;
-use super::rate_limits::StatusRateLimitData;
-use super::rate_limits::StatusRateLimitRow;
-use super::rate_limits::StatusRateLimitValue;
-use super::rate_limits::compose_rate_limit_data;
-use super::rate_limits::format_status_limit_summary;
-use super::rate_limits::render_status_limit_progress_bar;
 
 #[derive(Debug, Clone)]
 struct StatusContextWindowData {
@@ -58,7 +51,6 @@ struct StatusHistoryCell {
     agents_summary: String,
     session_id: Option<String>,
     token_usage: StatusTokenUsageData,
-    rate_limits: StatusRateLimitData,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -68,7 +60,6 @@ pub(crate) fn new_status_output(
     total_usage: &TokenUsage,
     context_usage: Option<&TokenUsage>,
     session_id: &Option<ConversationId>,
-    rate_limits: Option<&RateLimitSnapshotDisplay>,
     plan_type: Option<PlanType>,
     now: DateTime<Local>,
     model_name: &str,
@@ -80,7 +71,6 @@ pub(crate) fn new_status_output(
         total_usage,
         context_usage,
         session_id,
-        rate_limits,
         plan_type,
         now,
         model_name,
@@ -97,9 +87,8 @@ impl StatusHistoryCell {
         total_usage: &TokenUsage,
         context_usage: Option<&TokenUsage>,
         session_id: &Option<ConversationId>,
-        rate_limits: Option<&RateLimitSnapshotDisplay>,
         _plan_type: Option<PlanType>,
-        now: DateTime<Local>,
+        _now: DateTime<Local>,
         model_name: &str,
     ) -> Self {
         let config_entries = create_config_summary_entries(config, model_name);
@@ -137,7 +126,6 @@ impl StatusHistoryCell {
             output: total_usage.output_tokens,
             context_window,
         };
-        let rate_limits = compose_rate_limit_data(rate_limits, now);
 
         Self {
             model_name,
@@ -148,7 +136,6 @@ impl StatusHistoryCell {
             agents_summary,
             session_id,
             token_usage,
-            rate_limits,
         }
     }
 
@@ -185,110 +172,6 @@ impl StatusHistoryCell {
             Span::from(")").dim(),
         ])
     }
-
-    fn rate_limit_lines(
-        &self,
-        available_inner_width: usize,
-        formatter: &FieldFormatter,
-    ) -> Vec<Line<'static>> {
-        match &self.rate_limits {
-            StatusRateLimitData::Available(rows_data) => {
-                if rows_data.is_empty() {
-                    return vec![
-                        formatter.line("Limits", vec![Span::from("data not available yet").dim()]),
-                    ];
-                }
-
-                self.rate_limit_row_lines(rows_data, available_inner_width, formatter)
-            }
-            StatusRateLimitData::Stale(rows_data) => {
-                let mut lines =
-                    self.rate_limit_row_lines(rows_data, available_inner_width, formatter);
-                lines.push(formatter.line(
-                    "Warning",
-                    vec![Span::from("limits may be stale - start new turn to refresh.").dim()],
-                ));
-                lines
-            }
-            StatusRateLimitData::Missing => {
-                vec![formatter.line("Limits", vec![Span::from("data not available yet").dim()])]
-            }
-        }
-    }
-
-    fn rate_limit_row_lines(
-        &self,
-        rows: &[StatusRateLimitRow],
-        available_inner_width: usize,
-        formatter: &FieldFormatter,
-    ) -> Vec<Line<'static>> {
-        let mut lines = Vec::with_capacity(rows.len().saturating_mul(2));
-
-        for row in rows {
-            match &row.value {
-                StatusRateLimitValue::Window {
-                    percent_used,
-                    resets_at,
-                } => {
-                    let percent_remaining = (100.0 - percent_used).clamp(0.0, 100.0);
-                    let value_spans = vec![
-                        Span::from(render_status_limit_progress_bar(percent_remaining)),
-                        Span::from(" "),
-                        Span::from(format_status_limit_summary(percent_remaining)),
-                    ];
-                    let base_spans = formatter.full_spans(row.label.as_str(), value_spans);
-                    let base_line = Line::from(base_spans.clone());
-
-                    if let Some(resets_at) = resets_at.as_ref() {
-                        let resets_span = Span::from(format!("(resets {resets_at})")).dim();
-                        let mut inline_spans = base_spans.clone();
-                        inline_spans.push(Span::from(" ").dim());
-                        inline_spans.push(resets_span.clone());
-
-                        if line_display_width(&Line::from(inline_spans.clone()))
-                            <= available_inner_width
-                        {
-                            lines.push(Line::from(inline_spans));
-                        } else {
-                            lines.push(base_line);
-                            lines.push(formatter.continuation(vec![resets_span]));
-                        }
-                    } else {
-                        lines.push(base_line);
-                    }
-                }
-                StatusRateLimitValue::Text(text) => {
-                    let label = row.label.clone();
-                    let spans =
-                        formatter.full_spans(label.as_str(), vec![Span::from(text.clone())]);
-                    lines.push(Line::from(spans));
-                }
-            }
-        }
-
-        lines
-    }
-
-    fn collect_rate_limit_labels(&self, seen: &mut BTreeSet<String>, labels: &mut Vec<String>) {
-        match &self.rate_limits {
-            StatusRateLimitData::Available(rows) => {
-                if rows.is_empty() {
-                    push_label(labels, seen, "Limits");
-                } else {
-                    for row in rows {
-                        push_label(labels, seen, row.label.as_str());
-                    }
-                }
-            }
-            StatusRateLimitData::Stale(rows) => {
-                for row in rows {
-                    push_label(labels, seen, row.label.as_str());
-                }
-                push_label(labels, seen, "Warning");
-            }
-            StatusRateLimitData::Missing => push_label(labels, seen, "Limits"),
-        }
-    }
 }
 
 impl HistoryCell for StatusHistoryCell {
@@ -320,7 +203,6 @@ impl HistoryCell for StatusHistoryCell {
         if self.token_usage.context_window.is_some() {
             push_label(&mut labels, &mut seen, "Context window");
         }
-        self.collect_rate_limit_labels(&mut seen, &mut labels);
 
         let formatter = FieldFormatter::from_labels(labels.iter().map(String::as_str));
         let _ = formatter.value_width(available_inner_width);
@@ -350,8 +232,6 @@ impl HistoryCell for StatusHistoryCell {
         if let Some(spans) = self.context_window_spans() {
             lines.push(formatter.line("Context window", spans));
         }
-
-        lines.extend(self.rate_limit_lines(available_inner_width, &formatter));
 
         let content_width = lines.iter().map(line_display_width).max().unwrap_or(0);
         let inner_width = content_width.min(available_inner_width);

@@ -4,7 +4,6 @@ use aish_protocol::models::ResponseItem;
 
 use crate::aish::SessionConfiguration;
 use crate::context_manager::ContextManager;
-use crate::protocol::RateLimitSnapshot;
 use crate::protocol::TokenUsage;
 use crate::protocol::TokenUsageInfo;
 use crate::truncate::TruncationPolicy;
@@ -13,7 +12,6 @@ use crate::truncate::TruncationPolicy;
 pub(crate) struct SessionState {
     pub(crate) session_configuration: SessionConfiguration,
     pub(crate) history: ContextManager,
-    pub(crate) latest_rate_limits: Option<RateLimitSnapshot>,
 }
 
 impl SessionState {
@@ -23,7 +21,6 @@ impl SessionState {
         Self {
             session_configuration,
             history,
-            latest_rate_limits: None,
         }
     }
 
@@ -61,19 +58,6 @@ impl SessionState {
         self.history.token_info()
     }
 
-    pub(crate) fn set_rate_limits(&mut self, snapshot: RateLimitSnapshot) {
-        self.latest_rate_limits = Some(merge_rate_limit_fields(
-            self.latest_rate_limits.as_ref(),
-            snapshot,
-        ));
-    }
-
-    pub(crate) fn token_info_and_rate_limits(
-        &self,
-    ) -> (Option<TokenUsageInfo>, Option<RateLimitSnapshot>) {
-        (self.token_info(), self.latest_rate_limits.clone())
-    }
-
     pub(crate) fn set_token_usage_full(&mut self, context_window: i64) {
         self.history.set_token_usage_full(context_window);
     }
@@ -83,16 +67,3 @@ impl SessionState {
     }
 }
 
-// Sometimes new snapshots don't include credits or plan information.
-fn merge_rate_limit_fields(
-    previous: Option<&RateLimitSnapshot>,
-    mut snapshot: RateLimitSnapshot,
-) -> RateLimitSnapshot {
-    if snapshot.credits.is_none() {
-        snapshot.credits = previous.and_then(|prior| prior.credits.clone());
-    }
-    if snapshot.plan_type.is_none() {
-        snapshot.plan_type = previous.and_then(|prior| prior.plan_type);
-    }
-    snapshot
-}

@@ -7,7 +7,6 @@ use aish_async_utils::CancelErr;
 use aish_protocol::ConversationId;
 use aish_protocol::protocol::AishErrorInfo;
 use aish_protocol::protocol::ErrorEvent;
-use aish_protocol::protocol::RateLimitSnapshot;
 use chrono::DateTime;
 use chrono::Datelike;
 use chrono::Local;
@@ -315,7 +314,6 @@ impl std::fmt::Display for RetryLimitReachedError {
 pub struct UsageLimitReachedError {
     pub(crate) plan_type: Option<PlanType>,
     pub(crate) resets_at: Option<DateTime<Utc>>,
-    pub(crate) rate_limits: Option<RateLimitSnapshot>,
 }
 
 impl std::fmt::Display for UsageLimitReachedError {
@@ -516,7 +514,6 @@ pub fn get_error_message_ui(e: &AishErr) -> String {
 mod tests {
     use super::*;
     use crate::exec::StreamOutput;
-    use aish_protocol::protocol::RateLimitWindow;
     use chrono::DateTime;
     use chrono::Duration as ChronoDuration;
     use chrono::TimeZone;
@@ -526,31 +523,6 @@ mod tests {
     use reqwest::ResponseBuilderExt;
     use reqwest::StatusCode;
     use reqwest::Url;
-
-    fn rate_limit_snapshot() -> RateLimitSnapshot {
-        let primary_reset_at = Utc
-            .with_ymd_and_hms(2024, 1, 1, 1, 0, 0)
-            .unwrap()
-            .timestamp();
-        let secondary_reset_at = Utc
-            .with_ymd_and_hms(2024, 1, 1, 2, 0, 0)
-            .unwrap()
-            .timestamp();
-        RateLimitSnapshot {
-            primary: Some(RateLimitWindow {
-                used_percent: 50.0,
-                window_minutes: Some(60),
-                resets_at: Some(primary_reset_at),
-            }),
-            secondary: Some(RateLimitWindow {
-                used_percent: 30.0,
-                window_minutes: Some(120),
-                resets_at: Some(secondary_reset_at),
-            }),
-            credits: None,
-            plan_type: None,
-        }
-    }
 
     fn with_now_override<T>(now: DateTime<Utc>, f: impl FnOnce() -> T) -> T {
         NOW_OVERRIDE.with(|cell| {
@@ -566,7 +538,6 @@ mod tests {
         let err = UsageLimitReachedError {
             plan_type: Some(PlanType::Known(KnownPlan::Plus)),
             resets_at: None,
-            rate_limits: Some(rate_limit_snapshot()),
         };
         assert_eq!(
             err.to_string(),
@@ -673,7 +644,7 @@ mod tests {
         let err = UsageLimitReachedError {
             plan_type: Some(PlanType::Known(KnownPlan::Free)),
             resets_at: None,
-            rate_limits: Some(rate_limit_snapshot()),
+
         };
         assert_eq!(
             err.to_string(),
@@ -686,7 +657,7 @@ mod tests {
         let err = UsageLimitReachedError {
             plan_type: None,
             resets_at: None,
-            rate_limits: Some(rate_limit_snapshot()),
+
         };
         assert_eq!(
             err.to_string(),
@@ -703,7 +674,7 @@ mod tests {
             let err = UsageLimitReachedError {
                 plan_type: Some(PlanType::Known(KnownPlan::Team)),
                 resets_at: Some(resets_at),
-                rate_limits: Some(rate_limit_snapshot()),
+    
             };
             let expected = format!(
                 "You've hit your usage limit. To get more access now, send a request to your admin or try again at {expected_time}."
@@ -717,7 +688,7 @@ mod tests {
         let err = UsageLimitReachedError {
             plan_type: Some(PlanType::Known(KnownPlan::Business)),
             resets_at: None,
-            rate_limits: Some(rate_limit_snapshot()),
+
         };
         assert_eq!(
             err.to_string(),
@@ -730,7 +701,7 @@ mod tests {
         let err = UsageLimitReachedError {
             plan_type: Some(PlanType::Known(KnownPlan::Enterprise)),
             resets_at: None,
-            rate_limits: Some(rate_limit_snapshot()),
+
         };
         assert_eq!(
             err.to_string(),
@@ -747,7 +718,7 @@ mod tests {
             let err = UsageLimitReachedError {
                 plan_type: Some(PlanType::Known(KnownPlan::Pro)),
                 resets_at: Some(resets_at),
-                rate_limits: Some(rate_limit_snapshot()),
+    
             };
             let expected = format!("You've hit your usage limit. Try again at {expected_time}.");
             assert_eq!(err.to_string(), expected);
@@ -763,7 +734,7 @@ mod tests {
             let err = UsageLimitReachedError {
                 plan_type: None,
                 resets_at: Some(resets_at),
-                rate_limits: Some(rate_limit_snapshot()),
+    
             };
             let expected = format!("You've hit your usage limit. Try again at {expected_time}.");
             assert_eq!(err.to_string(), expected);
@@ -808,7 +779,6 @@ mod tests {
             let err = UsageLimitReachedError {
                 plan_type: Some(PlanType::Known(KnownPlan::Plus)),
                 resets_at: Some(resets_at),
-                rate_limits: Some(rate_limit_snapshot()),
             };
             let expected = format!("You've hit your usage limit. Try again at {expected_time}.");
             assert_eq!(err.to_string(), expected);
@@ -825,7 +795,6 @@ mod tests {
             let err = UsageLimitReachedError {
                 plan_type: None,
                 resets_at: Some(resets_at),
-                rate_limits: Some(rate_limit_snapshot()),
             };
             let expected = format!("You've hit your usage limit. Try again at {expected_time}.");
             assert_eq!(err.to_string(), expected);
@@ -841,7 +810,6 @@ mod tests {
             let err = UsageLimitReachedError {
                 plan_type: None,
                 resets_at: Some(resets_at),
-                rate_limits: Some(rate_limit_snapshot()),
             };
             let expected = format!("You've hit your usage limit. Try again at {expected_time}.");
             assert_eq!(err.to_string(), expected);

@@ -50,7 +50,6 @@ async fn resume_includes_initial_messages_from_rollout_events() -> Result<()> {
     match initial_messages.as_slice() {
         [
             EventMsg::UserMessage(first_user),
-            EventMsg::TokenCount(_),
             EventMsg::AgentMessage(assistant_message),
             EventMsg::TokenCount(_),
         ] => {
@@ -102,7 +101,6 @@ async fn resume_includes_initial_messages_from_reasoning_events() -> Result<()> 
     match initial_messages.as_slice() {
         [
             EventMsg::UserMessage(first_user),
-            EventMsg::TokenCount(_),
             EventMsg::AgentReasoning(reasoning),
             EventMsg::AgentReasoningRawContent(raw),
             EventMsg::AgentMessage(assistant_message),

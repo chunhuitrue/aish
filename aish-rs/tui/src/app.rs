@@ -29,7 +29,7 @@ use aish_core::protocol::SessionSource;
 use aish_core::protocol::SkillErrorInfo;
 use aish_core::protocol::TokenUsage;
 use aish_protocol::ConversationId;
-use aish_protocol::openai_models::ReasoningEffort as ReasoningEffortConfig;
+
 use color_eyre::eyre::Result;
 use color_eyre::eyre::WrapErr;
 use crossterm::event::KeyCode;
@@ -189,7 +189,7 @@ impl App {
                     initial_prompt: initial_prompt.clone(),
                     initial_images: initial_images.clone(),
                     enhanced_keys_supported,
-                    models_manager: conversation_manager.get_models_manager(),
+
                     is_first_run,
                     model_family: model_family.clone(),
                 };
@@ -213,7 +213,7 @@ impl App {
                     initial_prompt: initial_prompt.clone(),
                     initial_images: initial_images.clone(),
                     enhanced_keys_supported,
-                    models_manager: conversation_manager.get_models_manager(),
+
                     is_first_run,
                     model_family: model_family.clone(),
                 };
@@ -359,7 +359,7 @@ impl App {
                     initial_prompt: None,
                     initial_images: Vec::new(),
                     enhanced_keys_supported: self.enhanced_keys_supported,
-                    models_manager: self.server.get_models_manager(),
+
                     is_first_run: false,
                     model_family: model_family.clone(),
                 };
@@ -406,7 +406,7 @@ impl App {
                                     initial_prompt: None,
                                     initial_images: Vec::new(),
                                     enhanced_keys_supported: self.enhanced_keys_supported,
-                                    models_manager: self.server.get_models_manager(),
+
                                     is_first_run: false,
                                     model_family: model_family.clone(),
                                 };
@@ -518,20 +518,7 @@ impl App {
             AppEvent::FileSearchResult { query, matches } => {
                 self.chat_widget.apply_file_search_result(query, matches);
             }
-            AppEvent::RateLimitSnapshotFetched(snapshot) => {
-                self.chat_widget.on_rate_limit_snapshot(Some(snapshot));
-            }
-            AppEvent::UpdateReasoningEffort(effort) => {
-                self.on_update_reasoning_effort(effort);
-            }
-            AppEvent::UpdateModel(model) => {
-                let model_family = self
-                    .server
-                    .get_models_manager()
-                    .construct_model_family(&model, &self.config);
-                self.chat_widget.set_model(&model, model_family);
-                self.current_model = model;
-            }
+
             AppEvent::OpenFullAccessConfirmation { preset } => {
                 self.chat_widget.open_full_access_confirmation(preset);
             }
@@ -687,9 +674,6 @@ impl App {
                 self.chat_widget
                     .set_world_writable_warning_acknowledged(ack);
             }
-            AppEvent::UpdateRateLimitSwitchPromptHidden(hidden) => {
-                self.chat_widget.set_rate_limit_switch_prompt_hidden(hidden);
-            }
             AppEvent::PersistFullAccessWarningAcknowledged => {
                 if let Err(err) = ConfigEditsBuilder::new(&self.config.codex_home)
                     .set_hide_full_access_warning(true)
@@ -717,21 +701,6 @@ impl App {
                     );
                     self.chat_widget.add_error_message(format!(
                         "Failed to save Agent mode warning preference: {err}"
-                    ));
-                }
-            }
-            AppEvent::PersistRateLimitSwitchPromptHidden => {
-                if let Err(err) = ConfigEditsBuilder::new(&self.config.codex_home)
-                    .set_hide_rate_limit_model_nudge(true)
-                    .apply()
-                    .await
-                {
-                    tracing::error!(
-                        error = %err,
-                        "failed to persist rate limit switch prompt preference"
-                    );
-                    self.chat_widget.add_error_message(format!(
-                        "Failed to save rate limit reminder preference: {err}"
                     ));
                 }
             }
@@ -782,10 +751,7 @@ impl App {
         self.chat_widget.token_usage()
     }
 
-    fn on_update_reasoning_effort(&mut self, effort: Option<ReasoningEffortConfig>) {
-        self.chat_widget.set_reasoning_effort(effort);
-        self.config.model_reasoning_effort = effort;
-    }
+
 
     async fn launch_external_editor(&mut self, tui: &mut tui::Tui) {
         let editor_cmd = match external_editor::resolve_editor_command() {
@@ -1045,24 +1011,7 @@ mod tests {
         )
     }
 
-    #[tokio::test]
-    async fn update_reasoning_effort_updates_config() {
-        let mut app = make_test_app().await;
-        app.config.model_reasoning_effort = Some(ReasoningEffortConfig::Medium);
-        app.chat_widget
-            .set_reasoning_effort(Some(ReasoningEffortConfig::Medium));
 
-        app.on_update_reasoning_effort(Some(ReasoningEffortConfig::High));
-
-        assert_eq!(
-            app.config.model_reasoning_effort,
-            Some(ReasoningEffortConfig::High)
-        );
-        assert_eq!(
-            app.chat_widget.config_ref().model_reasoning_effort,
-            Some(ReasoningEffortConfig::High)
-        );
-    }
 
     #[tokio::test]
     async fn backtrack_selection_with_duplicate_history_targets_unique_turn() {

@@ -1052,7 +1052,7 @@ fn task_complete_produces_turn_completed_with_usage() {
         "e1",
         EventMsg::TokenCount(aish_core::protocol::TokenCountEvent {
             info: Some(info),
-            rate_limits: None,
+
         }),
     );
     assert!(ep.collect_thread_events(&token_count_event).is_empty());

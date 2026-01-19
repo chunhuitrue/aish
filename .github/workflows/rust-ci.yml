@@ -3,7 +3,7 @@ on:
   pull_request: {}
   push:
     branches:
-      - main
+      - master
   workflow_dispatch:
 
 # CI builds in debug (dev) for faster signal.
@@ -14,7 +14,7 @@ jobs:
     name: Detect changed areas
     runs-on: ubuntu-24.04
     outputs:
-      codex: ${{ steps.detect.outputs.codex }}
+      aish: ${{ steps.detect.outputs.aish }}
       workflows: ${{ steps.detect.outputs.workflows }}
     steps:
       - uses: actions/checkout@v6
@@ -38,14 +38,14 @@ jobs:
             files=("aish-rs/force" ".github/force")
           fi
 
-          codex=false
+          aish=false
           workflows=false
           for f in "${files[@]}"; do
-            [[ $f == aish-rs/* ]] && codex=true
+            [[ $f == aish-rs/* ]] && aish=true
             [[ $f == .github/* ]] && workflows=true
           done
 
-          echo "codex=$codex" >> "$GITHUB_OUTPUT"
+          echo "aish=$aish" >> "$GITHUB_OUTPUT"
           echo "workflows=$workflows" >> "$GITHUB_OUTPUT"
 
   # --- CI that doesn't need specific targets ---------------------------------
@@ -53,7 +53,7 @@ jobs:
     name: Format / etc
     runs-on: ubuntu-24.04
     needs: changed
-    if: ${{ needs.changed.outputs.codex == 'true' || needs.changed.outputs.workflows == 'true' || github.event_name == 'push' }}
+    if: ${{ needs.changed.outputs.aish == 'true' || needs.changed.outputs.workflows == 'true' || github.event_name == 'push' }}
     defaults:
       run:
         working-directory: aish-rs
@@ -71,7 +71,7 @@ jobs:
     name: cargo shear
     runs-on: ubuntu-24.04
     needs: changed
-    if: ${{ needs.changed.outputs.codex == 'true' || needs.changed.outputs.workflows == 'true' || github.event_name == 'push' }}
+    if: ${{ needs.changed.outputs.aish == 'true' || needs.changed.outputs.workflows == 'true' || github.event_name == 'push' }}
     defaults:
       run:
         working-directory: aish-rs
@@ -92,7 +92,7 @@ jobs:
     timeout-minutes: 30
     needs: changed
     # Keep job-level if to avoid spinning up runners when not needed
-    if: ${{ needs.changed.outputs.codex == 'true' || needs.changed.outputs.workflows == 'true' || github.event_name == 'push' }}
+    if: ${{ needs.changed.outputs.aish == 'true' || needs.changed.outputs.workflows == 'true' || github.event_name == 'push' }}
     defaults:
       run:
         working-directory: aish-rs
@@ -339,7 +339,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     needs: changed
-    if: ${{ needs.changed.outputs.codex == 'true' || needs.changed.outputs.workflows == 'true' || github.event_name == 'push' }}
+    if: ${{ needs.changed.outputs.aish == 'true' || needs.changed.outputs.workflows == 'true' || github.event_name == 'push' }}
     defaults:
       run:
         working-directory: aish-rs
@@ -527,7 +527,7 @@ jobs:
 
           # If nothing relevant changed (PR touching only root README, etc.),
           # declare success regardless of other jobs.
-          if [[ '${{ needs.changed.outputs.codex }}' != 'true' && '${{ needs.changed.outputs.workflows }}' != 'true' && '${{ github.event_name }}' != 'push' ]]; then
+          if [[ '${{ needs.changed.outputs.aish }}' != 'true' && '${{ needs.changed.outputs.workflows }}' != 'true' && '${{ github.event_name }}' != 'push' ]]; then
             echo 'No relevant changes -> CI not required.'
             exit 0
           fi

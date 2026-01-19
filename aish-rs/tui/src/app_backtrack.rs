@@ -347,7 +347,7 @@ impl App {
             initial_prompt: None,
             initial_images: Vec::new(),
             enhanced_keys_supported: self.enhanced_keys_supported,
-            models_manager: self.server.get_models_manager(),
+
             is_first_run: false,
         };
         self.chat_widget =

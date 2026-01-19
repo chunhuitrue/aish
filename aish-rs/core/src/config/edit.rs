@@ -25,8 +25,7 @@ pub enum ConfigEdit {
     SetNoticeHideFullAccessWarning(bool),
     /// Toggle the Windows world-writable directories warning acknowledgement flag.
     SetNoticeHideWorldWritableWarning(bool),
-    /// Toggle the rate limit model nudge acknowledgement flag.
-    SetNoticeHideRateLimitModelNudge(bool),
+
     /// Toggle the Windows onboarding acknowledgement flag.
     SetWindowsWslSetupAcknowledged(bool),
     /// Replace the entire `[mcp_servers]` table.
@@ -267,11 +266,7 @@ impl ConfigDocument {
                 &[Notice::TABLE_KEY, "hide_world_writable_warning"],
                 value(*acknowledged),
             )),
-            ConfigEdit::SetNoticeHideRateLimitModelNudge(acknowledged) => Ok(self.write_value(
-                Scope::Global,
-                &[Notice::TABLE_KEY, "hide_rate_limit_model_nudge"],
-                value(*acknowledged),
-            )),
+
             ConfigEdit::SetWindowsWslSetupAcknowledged(acknowledged) => Ok(self.write_value(
                 Scope::Global,
                 &["windows_wsl_setup_acknowledged"],
@@ -578,11 +573,7 @@ impl ConfigEditsBuilder {
         self
     }
 
-    pub fn set_hide_rate_limit_model_nudge(mut self, acknowledged: bool) -> Self {
-        self.edits
-            .push(ConfigEdit::SetNoticeHideRateLimitModelNudge(acknowledged));
-        self
-    }
+
 
     pub fn set_windows_wsl_setup_acknowledged(mut self, acknowledged: bool) -> Self {
         self.edits
@@ -921,33 +912,7 @@ hide_full_access_warning = true
         assert_eq!(contents, expected);
     }
 
-    #[test]
-    fn blocking_set_hide_rate_limit_model_nudge_preserves_table() {
-        let tmp = tempdir().expect("tmpdir");
-        let codex_home = tmp.path();
-        std::fs::write(
-            codex_home.join(CONFIG_TOML_FILE),
-            r#"[notice]
-existing = "value"
-"#,
-        )
-        .expect("seed");
 
-        apply_blocking(
-            codex_home,
-            None,
-            &[ConfigEdit::SetNoticeHideRateLimitModelNudge(true)],
-        )
-        .expect("persist");
-
-        let contents =
-            std::fs::read_to_string(codex_home.join(CONFIG_TOML_FILE)).expect("read config");
-        let expected = r#"[notice]
-existing = "value"
-hide_rate_limit_model_nudge = true
-"#;
-        assert_eq!(contents, expected);
-    }
 
     #[test]
     fn blocking_replace_mcp_servers_round_trips() {

@@ -1,7 +1,6 @@
 use crate::common::ResponseEvent;
 use crate::common::ResponseStream;
 use crate::error::ApiError;
-use crate::rate_limits::parse_rate_limit;
 use aish_client::ByteStream;
 use aish_client::StreamResponse;
 use aish_client::TransportError;
@@ -47,12 +46,8 @@ pub fn spawn_response_stream(
     stream_response: StreamResponse,
     idle_timeout: Duration,
 ) -> ResponseStream {
-    let rate_limits = parse_rate_limit(&stream_response.headers);
     let (tx_event, rx_event) = mpsc::channel::<Result<ResponseEvent, ApiError>>(1600);
     tokio::spawn(async move {
-        if let Some(snapshot) = rate_limits {
-            let _ = tx_event.send(Ok(ResponseEvent::RateLimits(snapshot))).await;
-        }
         process_sse(stream_response.bytes, tx_event, idle_timeout).await;
     });
 

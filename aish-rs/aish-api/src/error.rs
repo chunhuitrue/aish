@@ -1,4 +1,3 @@
-use crate::rate_limits::RateLimitError;
 use aish_client::TransportError;
 use http::StatusCode;
 use std::time::Duration;
@@ -23,12 +22,4 @@ pub enum ApiError {
         message: String,
         delay: Option<Duration>,
     },
-    #[error("rate limit: {0}")]
-    RateLimit(String),
-}
-
-impl From<RateLimitError> for ApiError {
-    fn from(err: RateLimitError) -> Self {
-        Self::RateLimit(err.to_string())
-    }
 }
