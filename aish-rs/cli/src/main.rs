@@ -1,0 +1,701 @@
+use aish_arg0::arg0_dispatch_or_else;
+use aish_cli::LandlockCommand;
+use aish_cli::SeatbeltCommand;
+use aish_cli::WindowsCommand;
+use aish_common::CliConfigOverrides;
+use aish_exec::Cli as ExecCli;
+use aish_execpolicy::ExecPolicyCheckCommand;
+use aish_tui::AppExitInfo;
+use aish_tui::Cli as TuiCli;
+use clap::CommandFactory;
+use clap::Parser;
+use clap_complete::Shell;
+use clap_complete::generate;
+use owo_colors::OwoColorize;
+use std::path::PathBuf;
+use supports_color::Stream;
+
+mod mcp_cmd;
+
+use crate::mcp_cmd::McpCli;
+
+use aish_core::config::Config;
+use aish_core::config::ConfigOverrides;
+use aish_core::features::is_known_feature_key;
+
+/// Aish CLI
+///
+/// If no subcommand is specified, options will be forwarded to the interactive CLI.
+#[derive(Debug, Parser)]
+#[clap(
+    author,
+    version,
+    // If a sub‑command is given, ignore requirements of the default args.
+    subcommand_negates_reqs = true,
+    // The executable is sometimes invoked via a platform‑specific name like
+    // `aish-x86_64-unknown-linux-musl`, but the help output should always use
+    // the generic `aish` command name that users run.
+    bin_name = "aish",
+    override_usage = "aish [OPTIONS] [PROMPT]\n       aish [OPTIONS] <COMMAND> [ARGS]"
+)]
+struct MultitoolCli {
+    #[clap(flatten)]
+    pub config_overrides: CliConfigOverrides,
+
+    #[clap(flatten)]
+    pub feature_toggles: FeatureToggles,
+
+    #[clap(flatten)]
+    interactive: TuiCli,
+
+    #[clap(subcommand)]
+    subcommand: Option<Subcommand>,
+}
+
+#[derive(Debug, clap::Subcommand)]
+enum Subcommand {
+    /// Run Aish non-interactively.
+    #[clap(visible_alias = "e")]
+    Exec(ExecCli),
+
+    /// [experimental] Run Aish as an MCP server and manage MCP servers.
+    Mcp(McpCli),
+
+    /// Generate shell completion scripts.
+    Completion(CompletionCommand),
+
+    /// Run commands within a Aish-provided sandbox.
+    #[clap(visible_alias = "debug")]
+    Sandbox(SandboxArgs),
+
+    /// Execpolicy tooling.
+    #[clap(hide = true)]
+    Execpolicy(ExecpolicyCommand),
+
+    /// Resume a previous interactive session (picker by default; use --last to continue the most recent).
+    Resume(ResumeCommand),
+
+    /// Internal: relay stdio to a Unix domain socket.
+    #[clap(hide = true, name = "stdio-to-uds")]
+    StdioToUds(StdioToUdsCommand),
+
+    /// Inspect feature flags.
+    Features(FeaturesCli),
+}
+
+#[derive(Debug, Parser)]
+struct CompletionCommand {
+    /// Shell to generate completions for
+    #[clap(value_enum, default_value_t = Shell::Bash)]
+    shell: Shell,
+}
+
+#[derive(Debug, Parser)]
+struct ResumeCommand {
+    /// Conversation/session id (UUID). When provided, resumes this session.
+    /// If omitted, use --last to pick the most recent recorded session.
+    #[arg(value_name = "SESSION_ID")]
+    session_id: Option<String>,
+
+    /// Continue the most recent session without showing the picker.
+    #[arg(long = "last", default_value_t = false, conflicts_with = "session_id")]
+    last: bool,
+
+    #[clap(flatten)]
+    config_overrides: TuiCli,
+}
+
+#[derive(Debug, Parser)]
+struct SandboxArgs {
+    #[command(subcommand)]
+    cmd: SandboxCommand,
+}
+
+#[derive(Debug, clap::Subcommand)]
+enum SandboxCommand {
+    /// Run a command under Seatbelt (macOS only).
+    #[clap(visible_alias = "seatbelt")]
+    Macos(SeatbeltCommand),
+
+    /// Run a command under Landlock+seccomp (Linux only).
+    #[clap(visible_alias = "landlock")]
+    Linux(LandlockCommand),
+
+    /// Run a command under Windows restricted token (Windows only).
+    Windows(WindowsCommand),
+}
+
+#[derive(Debug, Parser)]
+struct ExecpolicyCommand {
+    #[command(subcommand)]
+    sub: ExecpolicySubcommand,
+}
+
+#[derive(Debug, clap::Subcommand)]
+enum ExecpolicySubcommand {
+    /// Check execpolicy files against a command.
+    #[clap(name = "check")]
+    Check(ExecPolicyCheckCommand),
+}
+
+#[derive(Debug, Parser)]
+struct StdioToUdsCommand {
+    /// Path to the Unix domain socket to connect to.
+    #[arg(value_name = "SOCKET_PATH")]
+    socket_path: PathBuf,
+}
+
+fn format_exit_messages(exit_info: AppExitInfo, color_enabled: bool) -> Vec<String> {
+    let AppExitInfo {
+        token_usage,
+        conversation_id,
+        ..
+    } = exit_info;
+
+    if token_usage.is_zero() {
+        return Vec::new();
+    }
+
+    let mut lines = vec![format!(
+        "{}",
+        aish_core::protocol::FinalOutput::from(token_usage)
+    )];
+
+    if let Some(session_id) = conversation_id {
+        let resume_cmd = format!("aish resume {session_id}");
+        let command = if color_enabled {
+            resume_cmd.cyan().to_string()
+        } else {
+            resume_cmd
+        };
+        lines.push(format!("To continue this session, run {command}"));
+    }
+
+    lines
+}
+
+/// Handle the app exit and print the results. Optionally run the update action.
+fn handle_app_exit(exit_info: AppExitInfo) -> anyhow::Result<()> {
+    let color_enabled = supports_color::on(Stream::Stdout).is_some();
+    for line in format_exit_messages(exit_info, color_enabled) {
+        println!("{line}");
+    }
+    Ok(())
+}
+
+fn run_execpolicycheck(cmd: ExecPolicyCheckCommand) -> anyhow::Result<()> {
+    cmd.run()
+}
+
+#[derive(Debug, Default, Parser, Clone)]
+struct FeatureToggles {
+    /// Enable a feature (repeatable). Equivalent to `-c features.<name>=true`.
+    #[arg(long = "enable", value_name = "FEATURE", action = clap::ArgAction::Append, global = true)]
+    enable: Vec<String>,
+
+    /// Disable a feature (repeatable). Equivalent to `-c features.<name>=false`.
+    #[arg(long = "disable", value_name = "FEATURE", action = clap::ArgAction::Append, global = true)]
+    disable: Vec<String>,
+}
+
+impl FeatureToggles {
+    fn to_overrides(&self) -> anyhow::Result<Vec<String>> {
+        let mut v = Vec::new();
+        for feature in &self.enable {
+            Self::validate_feature(feature)?;
+            v.push(format!("features.{feature}=true"));
+        }
+        for feature in &self.disable {
+            Self::validate_feature(feature)?;
+            v.push(format!("features.{feature}=false"));
+        }
+        Ok(v)
+    }
+
+    fn validate_feature(feature: &str) -> anyhow::Result<()> {
+        if is_known_feature_key(feature) {
+            Ok(())
+        } else {
+            anyhow::bail!("Unknown feature flag: {feature}")
+        }
+    }
+}
+
+#[derive(Debug, Parser)]
+struct FeaturesCli {
+    #[command(subcommand)]
+    sub: FeaturesSubcommand,
+}
+
+#[derive(Debug, Parser)]
+enum FeaturesSubcommand {
+    /// List known features with their stage and effective state.
+    List,
+}
+
+fn stage_str(stage: aish_core::features::Stage) -> &'static str {
+    use aish_core::features::Stage;
+    match stage {
+        Stage::Experimental => "experimental",
+        Stage::Beta { .. } => "beta",
+        Stage::Stable => "stable",
+        Stage::Deprecated => "deprecated",
+        Stage::Removed => "removed",
+    }
+}
+
+/// As early as possible in the process lifecycle, apply hardening measures. We
+/// skip this in debug builds to avoid interfering with debugging.
+#[ctor::ctor]
+#[cfg(not(debug_assertions))]
+fn pre_main_hardening() {
+    aish_process_hardening::pre_main_hardening();
+}
+
+fn main() -> anyhow::Result<()> {
+    arg0_dispatch_or_else(|aish_linux_sandbox_exe| async move {
+        cli_main(aish_linux_sandbox_exe).await?;
+        Ok(())
+    })
+}
+
+async fn cli_main(aish_linux_sandbox_exe: Option<PathBuf>) -> anyhow::Result<()> {
+    let MultitoolCli {
+        config_overrides: mut root_config_overrides,
+        feature_toggles,
+        mut interactive,
+        subcommand,
+    } = MultitoolCli::parse();
+
+    // Fold --enable/--disable into config overrides so they flow to all subcommands.
+    let toggle_overrides = feature_toggles.to_overrides()?;
+    root_config_overrides.raw_overrides.extend(toggle_overrides);
+
+    match subcommand {
+        None => {
+            prepend_config_flags(
+                &mut interactive.config_overrides,
+                root_config_overrides.clone(),
+            );
+            let exit_info = run_interactive_tui(interactive, aish_linux_sandbox_exe).await?;
+            handle_app_exit(exit_info)?;
+        }
+        Some(Subcommand::Exec(mut exec_cli)) => {
+            prepend_config_flags(
+                &mut exec_cli.config_overrides,
+                root_config_overrides.clone(),
+            );
+            aish_exec::run_main(exec_cli, aish_linux_sandbox_exe).await?;
+        }
+        Some(Subcommand::Mcp(mut mcp_cli)) => {
+            // Propagate any root-level config overrides (e.g. `-c key=value`).
+            prepend_config_flags(&mut mcp_cli.config_overrides, root_config_overrides.clone());
+            mcp_cli.run().await?;
+        }
+        Some(Subcommand::Resume(ResumeCommand {
+            session_id,
+            last,
+            config_overrides,
+        })) => {
+            interactive = finalize_resume_interactive(
+                interactive,
+                root_config_overrides.clone(),
+                session_id,
+                last,
+                config_overrides,
+            );
+            let exit_info = run_interactive_tui(interactive, aish_linux_sandbox_exe).await?;
+            handle_app_exit(exit_info)?;
+        }
+        Some(Subcommand::Completion(completion_cli)) => {
+            print_completion(completion_cli);
+        }
+        Some(Subcommand::Sandbox(sandbox_args)) => match sandbox_args.cmd {
+            SandboxCommand::Macos(mut seatbelt_cli) => {
+                prepend_config_flags(
+                    &mut seatbelt_cli.config_overrides,
+                    root_config_overrides.clone(),
+                );
+                aish_cli::debug_sandbox::run_command_under_seatbelt(
+                    seatbelt_cli,
+                    aish_linux_sandbox_exe,
+                )
+                .await?;
+            }
+            SandboxCommand::Linux(mut landlock_cli) => {
+                prepend_config_flags(
+                    &mut landlock_cli.config_overrides,
+                    root_config_overrides.clone(),
+                );
+                aish_cli::debug_sandbox::run_command_under_landlock(
+                    landlock_cli,
+                    aish_linux_sandbox_exe,
+                )
+                .await?;
+            }
+            SandboxCommand::Windows(mut windows_cli) => {
+                prepend_config_flags(
+                    &mut windows_cli.config_overrides,
+                    root_config_overrides.clone(),
+                );
+                aish_cli::debug_sandbox::run_command_under_windows(
+                    windows_cli,
+                    aish_linux_sandbox_exe,
+                )
+                .await?;
+            }
+        },
+        Some(Subcommand::Execpolicy(ExecpolicyCommand { sub })) => match sub {
+            ExecpolicySubcommand::Check(cmd) => run_execpolicycheck(cmd)?,
+        },
+        Some(Subcommand::StdioToUds(cmd)) => {
+            let socket_path = cmd.socket_path;
+            tokio::task::spawn_blocking(move || aish_stdio_to_uds::run(socket_path.as_path()))
+                .await??;
+        }
+        Some(Subcommand::Features(FeaturesCli { sub })) => match sub {
+            FeaturesSubcommand::List => {
+                // Respect root-level `-c` overrides plus top-level flags like `--profile`.
+                let mut cli_kv_overrides = root_config_overrides
+                    .parse_overrides()
+                    .map_err(anyhow::Error::msg)?;
+
+                // Honor `--search` via the new feature toggle.
+                if interactive.web_search {
+                    cli_kv_overrides.push((
+                        "features.web_search_request".to_string(),
+                        toml::Value::Boolean(true),
+                    ));
+                }
+
+                // Thread through relevant top-level flags (at minimum, `--profile`).
+                let overrides = ConfigOverrides {
+                    config_profile: interactive.config_profile.clone(),
+                    ..Default::default()
+                };
+
+                let config = Config::load_with_cli_overrides_and_harness_overrides(
+                    cli_kv_overrides,
+                    overrides,
+                )
+                .await?;
+                for def in aish_core::features::FEATURES.iter() {
+                    let name = def.key;
+                    let stage = stage_str(def.stage);
+                    let enabled = config.features.enabled(def.id);
+                    println!("{name}\t{stage}\t{enabled}");
+                }
+            }
+        },
+    }
+
+    Ok(())
+}
+
+/// Prepend root-level overrides so they have lower precedence than
+/// CLI-specific ones specified after the subcommand (if any).
+fn prepend_config_flags(
+    subcommand_config_overrides: &mut CliConfigOverrides,
+    cli_config_overrides: CliConfigOverrides,
+) {
+    subcommand_config_overrides
+        .raw_overrides
+        .splice(0..0, cli_config_overrides.raw_overrides);
+}
+
+/// Run the interactive Aish TUI, dispatching to either the legacy implementation or the
+/// experimental TUI v2 shim based on feature flags resolved from config.
+async fn run_interactive_tui(
+    interactive: TuiCli,
+    aish_linux_sandbox_exe: Option<PathBuf>,
+) -> std::io::Result<AppExitInfo> {
+    aish_tui::run_main(interactive, aish_linux_sandbox_exe).await
+}
+
+/// Build the final `TuiCli` for a `aish resume` invocation.
+fn finalize_resume_interactive(
+    mut interactive: TuiCli,
+    root_config_overrides: CliConfigOverrides,
+    session_id: Option<String>,
+    last: bool,
+    resume_cli: TuiCli,
+) -> TuiCli {
+    // Start with the parsed interactive CLI so resume shares the same
+    // configuration surface area as `aish` without additional flags.
+    let resume_session_id = session_id;
+    interactive.resume_picker = resume_session_id.is_none() && !last;
+    interactive.resume_last = last;
+    interactive.resume_session_id = resume_session_id;
+
+    // Merge resume-scoped flags and overrides with highest precedence.
+    merge_resume_cli_flags(&mut interactive, resume_cli);
+
+    // Propagate any root-level config overrides (e.g. `-c key=value`).
+    prepend_config_flags(&mut interactive.config_overrides, root_config_overrides);
+
+    interactive
+}
+
+/// Merge flags provided to `aish resume` so they take precedence over any
+/// root-level flags. Only overrides fields explicitly set on the resume-scoped
+/// CLI. Also appends `-c key=value` overrides with highest precedence.
+fn merge_resume_cli_flags(interactive: &mut TuiCli, resume_cli: TuiCli) {
+    if let Some(model) = resume_cli.model {
+        interactive.model = Some(model);
+    }
+    if resume_cli.oss {
+        interactive.oss = true;
+    }
+    if let Some(profile) = resume_cli.config_profile {
+        interactive.config_profile = Some(profile);
+    }
+    if let Some(sandbox) = resume_cli.sandbox_mode {
+        interactive.sandbox_mode = Some(sandbox);
+    }
+    if let Some(approval) = resume_cli.approval_policy {
+        interactive.approval_policy = Some(approval);
+    }
+    if resume_cli.full_auto {
+        interactive.full_auto = true;
+    }
+    if resume_cli.dangerously_bypass_approvals_and_sandbox {
+        interactive.dangerously_bypass_approvals_and_sandbox = true;
+    }
+    if let Some(cwd) = resume_cli.cwd {
+        interactive.cwd = Some(cwd);
+    }
+    if resume_cli.web_search {
+        interactive.web_search = true;
+    }
+    if !resume_cli.images.is_empty() {
+        interactive.images = resume_cli.images;
+    }
+    if !resume_cli.add_dir.is_empty() {
+        interactive.add_dir.extend(resume_cli.add_dir);
+    }
+    if let Some(prompt) = resume_cli.prompt {
+        interactive.prompt = Some(prompt);
+    }
+
+    interactive
+        .config_overrides
+        .raw_overrides
+        .extend(resume_cli.config_overrides.raw_overrides);
+}
+
+fn print_completion(cmd: CompletionCommand) {
+    let mut app = MultitoolCli::command();
+    let name = "aish";
+    generate(cmd.shell, &mut app, name, &mut std::io::stdout());
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aish_core::protocol::TokenUsage;
+    use aish_protocol::ConversationId;
+    use assert_matches::assert_matches;
+    use pretty_assertions::assert_eq;
+
+    fn finalize_from_args(args: &[&str]) -> TuiCli {
+        let cli = MultitoolCli::try_parse_from(args).expect("parse");
+        let MultitoolCli {
+            interactive,
+            config_overrides: root_overrides,
+            subcommand,
+            feature_toggles: _,
+        } = cli;
+
+        let Subcommand::Resume(ResumeCommand {
+            session_id,
+            last,
+            config_overrides: resume_cli,
+        }) = subcommand.expect("resume present")
+        else {
+            unreachable!()
+        };
+
+        finalize_resume_interactive(interactive, root_overrides, session_id, last, resume_cli)
+    }
+
+    fn sample_exit_info(conversation: Option<&str>) -> AppExitInfo {
+        let token_usage = TokenUsage {
+            output_tokens: 2,
+            total_tokens: 2,
+            ..Default::default()
+        };
+        AppExitInfo {
+            token_usage,
+            conversation_id: conversation
+                .map(ConversationId::from_string)
+                .map(Result::unwrap),
+        }
+    }
+
+    #[test]
+    fn format_exit_messages_skips_zero_usage() {
+        let exit_info = AppExitInfo {
+            token_usage: TokenUsage::default(),
+            conversation_id: None,
+        };
+        let lines = format_exit_messages(exit_info, false);
+        assert!(lines.is_empty());
+    }
+
+    #[test]
+    fn format_exit_messages_includes_resume_hint_without_color() {
+        let exit_info = sample_exit_info(Some("123e4567-e89b-12d3-a456-426614174000"));
+        let lines = format_exit_messages(exit_info, false);
+        assert_eq!(
+            lines,
+            vec![
+                "Token usage: total=2 input=0 output=2".to_string(),
+                "To continue this session, run aish resume 123e4567-e89b-12d3-a456-426614174000"
+                    .to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn format_exit_messages_applies_color_when_enabled() {
+        let exit_info = sample_exit_info(Some("123e4567-e89b-12d3-a456-426614174000"));
+        let lines = format_exit_messages(exit_info, true);
+        assert_eq!(lines.len(), 2);
+        assert!(lines[1].contains("\u{1b}[36m"));
+    }
+
+    #[test]
+    fn resume_model_flag_applies_when_no_root_flags() {
+        let interactive = finalize_from_args(["aish", "resume", "-m", "gpt-5.1-test"].as_ref());
+
+        assert_eq!(interactive.model.as_deref(), Some("gpt-5.1-test"));
+        assert!(interactive.resume_picker);
+        assert!(!interactive.resume_last);
+        assert_eq!(interactive.resume_session_id, None);
+    }
+
+    #[test]
+    fn resume_picker_logic_none_and_not_last() {
+        let interactive = finalize_from_args(["aish", "resume"].as_ref());
+        assert!(interactive.resume_picker);
+        assert!(!interactive.resume_last);
+        assert_eq!(interactive.resume_session_id, None);
+    }
+
+    #[test]
+    fn resume_picker_logic_last() {
+        let interactive = finalize_from_args(["aish", "resume", "--last"].as_ref());
+        assert!(!interactive.resume_picker);
+        assert!(interactive.resume_last);
+        assert_eq!(interactive.resume_session_id, None);
+    }
+
+    #[test]
+    fn resume_picker_logic_with_session_id() {
+        let interactive = finalize_from_args(["aish", "resume", "1234"].as_ref());
+        assert!(!interactive.resume_picker);
+        assert!(!interactive.resume_last);
+        assert_eq!(interactive.resume_session_id.as_deref(), Some("1234"));
+    }
+
+    #[test]
+    fn resume_merges_option_flags_and_full_auto() {
+        let interactive = finalize_from_args(
+            [
+                "aish",
+                "resume",
+                "sid",
+                "--oss",
+                "--full-auto",
+                "--search",
+                "--sandbox",
+                "current-dir-write",
+                "--ask-for-approval",
+                "on-request",
+                "-m",
+                "gpt-5.1-test",
+                "-p",
+                "my-profile",
+                "-C",
+                "/tmp",
+                "-i",
+                "/tmp/a.png,/tmp/b.png",
+            ]
+            .as_ref(),
+        );
+
+        assert_eq!(interactive.model.as_deref(), Some("gpt-5.1-test"));
+        assert!(interactive.oss);
+        assert_eq!(interactive.config_profile.as_deref(), Some("my-profile"));
+        assert_matches!(
+            interactive.sandbox_mode,
+            Some(aish_common::SandboxModeCliArg::CurrentDirWrite)
+        );
+        assert_matches!(
+            interactive.approval_policy,
+            Some(aish_common::ApprovalModeCliArg::OnRequest)
+        );
+        assert!(interactive.full_auto);
+        assert_eq!(
+            interactive.cwd.as_deref(),
+            Some(std::path::Path::new("/tmp"))
+        );
+        assert!(interactive.web_search);
+        let has_a = interactive
+            .images
+            .iter()
+            .any(|p| p == std::path::Path::new("/tmp/a.png"));
+        let has_b = interactive
+            .images
+            .iter()
+            .any(|p| p == std::path::Path::new("/tmp/b.png"));
+        assert!(has_a && has_b);
+        assert!(!interactive.resume_picker);
+        assert!(!interactive.resume_last);
+        assert_eq!(interactive.resume_session_id.as_deref(), Some("sid"));
+    }
+
+    #[test]
+    fn resume_merges_dangerously_bypass_flag() {
+        let interactive = finalize_from_args(
+            [
+                "aish",
+                "resume",
+                "--dangerously-bypass-approvals-and-sandbox",
+            ]
+            .as_ref(),
+        );
+        assert!(interactive.dangerously_bypass_approvals_and_sandbox);
+        assert!(interactive.resume_picker);
+        assert!(!interactive.resume_last);
+        assert_eq!(interactive.resume_session_id, None);
+    }
+
+    #[test]
+    fn feature_toggles_known_features_generate_overrides() {
+        let toggles = FeatureToggles {
+            enable: vec!["web_search_request".to_string()],
+            disable: vec!["shell_tool".to_string()],
+        };
+        let overrides = toggles.to_overrides().expect("valid features");
+        assert_eq!(
+            overrides,
+            vec![
+                "features.web_search_request=true".to_string(),
+                "features.shell_tool=false".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn feature_toggles_unknown_feature_errors() {
+        let toggles = FeatureToggles {
+            enable: vec!["does_not_exist".to_string()],
+            disable: Vec::new(),
+        };
+        let err = toggles
+            .to_overrides()
+            .expect_err("feature should be rejected");
+        assert_eq!(err.to_string(), "Unknown feature flag: does_not_exist");
+    }
+}

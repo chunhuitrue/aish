@@ -1,0 +1,383 @@
+use crate::aish::TurnContext;
+use crate::protocol::AskForApproval;
+use crate::protocol::NetworkAccess;
+use crate::protocol::SandboxPolicy;
+use crate::shell::Shell;
+use aish_protocol::config_types::SandboxMode;
+use aish_protocol::models::ContentItem;
+use aish_protocol::models::ResponseItem;
+use aish_protocol::protocol::ENVIRONMENT_CONTEXT_CLOSE_TAG;
+use aish_protocol::protocol::ENVIRONMENT_CONTEXT_OPEN_TAG;
+use aish_utils_absolute_path::AbsolutePathBuf;
+use serde::Deserialize;
+use serde::Serialize;
+use std::path::PathBuf;
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename = "environment_context", rename_all = "snake_case")]
+pub(crate) struct EnvironmentContext {
+    pub cwd: Option<PathBuf>,
+    pub approval_policy: Option<AskForApproval>,
+    pub sandbox_mode: Option<SandboxMode>,
+    pub network_access: Option<NetworkAccess>,
+    pub writable_roots: Option<Vec<AbsolutePathBuf>>,
+    pub shell: Shell,
+}
+
+impl EnvironmentContext {
+    pub fn new(
+        cwd: Option<PathBuf>,
+        approval_policy: Option<AskForApproval>,
+        sandbox_policy: Option<SandboxPolicy>,
+        shell: Shell,
+    ) -> Self {
+        Self {
+            cwd,
+            approval_policy,
+            sandbox_mode: match sandbox_policy {
+                Some(SandboxPolicy::DangerFullAccess) => Some(SandboxMode::DangerFullAccess),
+                Some(SandboxPolicy::ReadOnly) => Some(SandboxMode::ReadOnly),
+                Some(SandboxPolicy::ExternalSandbox { .. }) => Some(SandboxMode::DangerFullAccess),
+                Some(SandboxPolicy::CurrentDirWrite { .. }) => Some(SandboxMode::CurrentDirWrite),
+                None => None,
+            },
+            network_access: match sandbox_policy {
+                Some(SandboxPolicy::DangerFullAccess) => Some(NetworkAccess::Enabled),
+                Some(SandboxPolicy::ReadOnly) => Some(NetworkAccess::Restricted),
+                Some(SandboxPolicy::ExternalSandbox { network_access }) => Some(network_access),
+                Some(SandboxPolicy::CurrentDirWrite { network_access, .. }) => {
+                    if network_access {
+                        Some(NetworkAccess::Enabled)
+                    } else {
+                        Some(NetworkAccess::Restricted)
+                    }
+                }
+                None => None,
+            },
+            writable_roots: match sandbox_policy {
+                // No writable_roots field anymore, cwd is always included
+                Some(SandboxPolicy::CurrentDirWrite { .. }) => None,
+                _ => None,
+            },
+            shell,
+        }
+    }
+
+    /// Compares two environment contexts, ignoring the shell. Useful when
+    /// comparing turn to turn, since the initial environment_context will
+    /// include the shell, and then it is not configurable from turn to turn.
+    pub fn equals_except_shell(&self, other: &EnvironmentContext) -> bool {
+        let EnvironmentContext {
+            cwd,
+            approval_policy,
+            sandbox_mode,
+            network_access,
+            writable_roots,
+            // should compare all fields except shell
+            shell: _,
+        } = other;
+
+        self.cwd == *cwd
+            && self.approval_policy == *approval_policy
+            && self.sandbox_mode == *sandbox_mode
+            && self.network_access == *network_access
+            && self.writable_roots == *writable_roots
+    }
+
+    pub fn diff(before: &TurnContext, after: &TurnContext, shell: &Shell) -> Self {
+        let cwd = if before.cwd != after.cwd {
+            Some(after.cwd.clone())
+        } else {
+            None
+        };
+        let approval_policy = if before.approval_policy != after.approval_policy {
+            Some(after.approval_policy)
+        } else {
+            None
+        };
+        let sandbox_policy = if before.sandbox_policy != after.sandbox_policy {
+            Some(after.sandbox_policy.clone())
+        } else {
+            None
+        };
+        EnvironmentContext::new(cwd, approval_policy, sandbox_policy, shell.clone())
+    }
+
+    pub fn from_turn_context(turn_context: &TurnContext, shell: &Shell) -> Self {
+        Self::new(
+            Some(turn_context.cwd.clone()),
+            Some(turn_context.approval_policy),
+            Some(turn_context.sandbox_policy.clone()),
+            shell.clone(),
+        )
+    }
+}
+
+impl EnvironmentContext {
+    /// Serializes the environment context to XML. Libraries like `quick-xml`
+    /// require custom macros to handle Enums with newtypes, so we just do it
+    /// manually, to keep things simple. Output looks like:
+    ///
+    /// ```xml
+    /// <environment_context>
+    ///   <cwd>...</cwd>
+    ///   <approval_policy>...</approval_policy>
+    ///   <sandbox_mode>...</sandbox_mode>
+    ///   <writable_roots>...</writable_roots>
+    ///   <network_access>...</network_access>
+    ///   <shell>...</shell>
+    /// </environment_context>
+    /// ```
+    pub fn serialize_to_xml(self) -> String {
+        let mut lines = vec![ENVIRONMENT_CONTEXT_OPEN_TAG.to_string()];
+        if let Some(cwd) = self.cwd {
+            lines.push(format!("  <cwd>{}</cwd>", cwd.to_string_lossy()));
+        }
+        if let Some(approval_policy) = self.approval_policy {
+            lines.push(format!(
+                "  <approval_policy>{approval_policy}</approval_policy>"
+            ));
+        }
+        if let Some(sandbox_mode) = self.sandbox_mode {
+            lines.push(format!("  <sandbox_mode>{sandbox_mode}</sandbox_mode>"));
+        }
+        if let Some(network_access) = self.network_access {
+            lines.push(format!(
+                "  <network_access>{network_access}</network_access>"
+            ));
+        }
+        if let Some(writable_roots) = self.writable_roots {
+            lines.push("  <writable_roots>".to_string());
+            for writable_root in writable_roots {
+                lines.push(format!(
+                    "    <root>{}</root>",
+                    writable_root.to_string_lossy()
+                ));
+            }
+            lines.push("  </writable_roots>".to_string());
+        }
+
+        let shell_name = self.shell.name();
+        lines.push(format!("  <shell>{shell_name}</shell>"));
+        lines.push(ENVIRONMENT_CONTEXT_CLOSE_TAG.to_string());
+        lines.join("\n")
+    }
+}
+
+impl From<EnvironmentContext> for ResponseItem {
+    fn from(ec: EnvironmentContext) -> Self {
+        ResponseItem::Message {
+            id: None,
+            role: "user".to_string(),
+            content: vec![ContentItem::InputText {
+                text: ec.serialize_to_xml(),
+            }],
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::shell::ShellType;
+
+    use super::*;
+    use core_test_support::test_path_buf;
+    use pretty_assertions::assert_eq;
+
+    fn fake_shell() -> Shell {
+        Shell {
+            shell_type: ShellType::Bash,
+            shell_path: PathBuf::from("/bin/bash"),
+        }
+    }
+
+    fn current_dir_write_policy(network_access: bool) -> SandboxPolicy {
+        SandboxPolicy::CurrentDirWrite {
+            network_access,
+            exclude_tmpdir_env_var: false,
+            exclude_slash_tmp: false,
+        }
+    }
+
+    #[test]
+    fn serialize_current_dir_write_environment_context() {
+        let cwd = test_path_buf("/repo");
+        let context = EnvironmentContext::new(
+            Some(cwd.clone()),
+            Some(AskForApproval::OnRequest),
+            Some(current_dir_write_policy(false)),
+            fake_shell(),
+        );
+
+        let expected = format!(
+            r#"<environment_context>
+  <cwd>{cwd}</cwd>
+  <approval_policy>on-request</approval_policy>
+  <sandbox_mode>current-dir-write</sandbox_mode>
+  <network_access>restricted</network_access>
+  <shell>bash</shell>
+</environment_context>"#,
+            cwd = cwd.display(),
+        );
+
+        assert_eq!(context.serialize_to_xml(), expected);
+    }
+
+    #[test]
+    fn serialize_read_only_environment_context() {
+        let context = EnvironmentContext::new(
+            None,
+            Some(AskForApproval::Never),
+            Some(SandboxPolicy::ReadOnly),
+            fake_shell(),
+        );
+
+        let expected = r#"<environment_context>
+  <approval_policy>never</approval_policy>
+  <sandbox_mode>read-only</sandbox_mode>
+  <network_access>restricted</network_access>
+  <shell>bash</shell>
+</environment_context>"#;
+
+        assert_eq!(context.serialize_to_xml(), expected);
+    }
+
+    #[test]
+    fn serialize_external_sandbox_environment_context() {
+        let context = EnvironmentContext::new(
+            None,
+            Some(AskForApproval::OnRequest),
+            Some(SandboxPolicy::ExternalSandbox {
+                network_access: NetworkAccess::Enabled,
+            }),
+            fake_shell(),
+        );
+
+        let expected = r#"<environment_context>
+  <approval_policy>on-request</approval_policy>
+  <sandbox_mode>danger-full-access</sandbox_mode>
+  <network_access>enabled</network_access>
+  <shell>bash</shell>
+</environment_context>"#;
+
+        assert_eq!(context.serialize_to_xml(), expected);
+    }
+
+    #[test]
+    fn serialize_external_sandbox_with_restricted_network_environment_context() {
+        let context = EnvironmentContext::new(
+            None,
+            Some(AskForApproval::OnRequest),
+            Some(SandboxPolicy::ExternalSandbox {
+                network_access: NetworkAccess::Restricted,
+            }),
+            fake_shell(),
+        );
+
+        let expected = r#"<environment_context>
+  <approval_policy>on-request</approval_policy>
+  <sandbox_mode>danger-full-access</sandbox_mode>
+  <network_access>restricted</network_access>
+  <shell>bash</shell>
+</environment_context>"#;
+
+        assert_eq!(context.serialize_to_xml(), expected);
+    }
+
+    #[test]
+    fn serialize_full_access_environment_context() {
+        let context = EnvironmentContext::new(
+            None,
+            Some(AskForApproval::OnFailure),
+            Some(SandboxPolicy::DangerFullAccess),
+            fake_shell(),
+        );
+
+        let expected = r#"<environment_context>
+  <approval_policy>on-failure</approval_policy>
+  <sandbox_mode>danger-full-access</sandbox_mode>
+  <network_access>enabled</network_access>
+  <shell>bash</shell>
+</environment_context>"#;
+
+        assert_eq!(context.serialize_to_xml(), expected);
+    }
+
+    #[test]
+    fn equals_except_shell_compares_approval_policy() {
+        // Approval policy
+        let context1 = EnvironmentContext::new(
+            Some(PathBuf::from("/repo")),
+            Some(AskForApproval::OnRequest),
+            Some(current_dir_write_policy(false)),
+            fake_shell(),
+        );
+        let context2 = EnvironmentContext::new(
+            Some(PathBuf::from("/repo")),
+            Some(AskForApproval::Never),
+            Some(current_dir_write_policy(true)),
+            fake_shell(),
+        );
+        assert!(!context1.equals_except_shell(&context2));
+    }
+
+    #[test]
+    fn equals_except_shell_compares_sandbox_policy() {
+        let context1 = EnvironmentContext::new(
+            Some(PathBuf::from("/repo")),
+            Some(AskForApproval::OnRequest),
+            Some(SandboxPolicy::new_read_only_policy()),
+            fake_shell(),
+        );
+        let context2 = EnvironmentContext::new(
+            Some(PathBuf::from("/repo")),
+            Some(AskForApproval::OnRequest),
+            Some(SandboxPolicy::new_current_dir_write_policy()),
+            fake_shell(),
+        );
+
+        assert!(!context1.equals_except_shell(&context2));
+    }
+
+    #[test]
+    fn equals_except_shell_compares_current_dir_write_policy() {
+        let context1 = EnvironmentContext::new(
+            Some(PathBuf::from("/repo")),
+            Some(AskForApproval::OnRequest),
+            Some(current_dir_write_policy(false)),
+            fake_shell(),
+        );
+        let context2 = EnvironmentContext::new(
+            Some(PathBuf::from("/repo")),
+            Some(AskForApproval::OnRequest),
+            Some(current_dir_write_policy(true)),
+            fake_shell(),
+        );
+
+        assert!(!context1.equals_except_shell(&context2));
+    }
+
+    #[test]
+    fn equals_except_shell_ignores_shell() {
+        let context1 = EnvironmentContext::new(
+            Some(PathBuf::from("/repo")),
+            Some(AskForApproval::OnRequest),
+            Some(current_dir_write_policy(false)),
+            Shell {
+                shell_type: ShellType::Bash,
+                shell_path: "/bin/bash".into(),
+            },
+        );
+        let context2 = EnvironmentContext::new(
+            Some(PathBuf::from("/repo")),
+            Some(AskForApproval::OnRequest),
+            Some(current_dir_write_policy(false)),
+            Shell {
+                shell_type: ShellType::Zsh,
+                shell_path: "/bin/zsh".into(),
+            },
+        );
+
+        assert!(context1.equals_except_shell(&context2));
+    }
+}

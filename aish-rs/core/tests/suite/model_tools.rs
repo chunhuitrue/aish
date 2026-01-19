@@ -1,0 +1,71 @@
+#![allow(clippy::unwrap_used)]
+
+use core_test_support::load_sse_fixture_with_id;
+use core_test_support::responses;
+use core_test_support::responses::start_mock_server;
+use core_test_support::skip_if_no_network;
+use core_test_support::test_aish::test_aish;
+
+fn sse_completed(id: &str) -> String {
+    load_sse_fixture_with_id("tests/fixtures/completed_template.json", id)
+}
+
+#[allow(clippy::expect_used)]
+fn tool_identifiers(body: &serde_json::Value) -> Vec<String> {
+    body["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|tool| {
+            tool.get("name")
+                .and_then(|v| v.as_str())
+                .or_else(|| tool.get("type").and_then(|v| v.as_str()))
+                .map(std::string::ToString::to_string)
+                .expect("tool should have either name or type")
+        })
+        .collect()
+}
+
+#[allow(clippy::expect_used)]
+async fn collect_tool_identifiers_for_model(model: &str) -> Vec<String> {
+    let server = start_mock_server().await;
+    let sse = sse_completed(model);
+    let resp_mock = responses::mount_sse_once(&server, sse).await;
+
+    let mut builder = test_aish().with_model(model);
+    let test = builder
+        .build(&server)
+        .await
+        .expect("create test Codex conversation");
+
+    test.submit_turn("hello tools").await.expect("submit turn");
+
+    let body = resp_mock.single_request().body_json();
+    tool_identifiers(&body)
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn model_selects_expected_tools() {
+    skip_if_no_network!();
+    use pretty_assertions::assert_eq;
+
+    // test- models use shell_command, apply_patch, and have experimental tools enabled
+    let test_tools = collect_tool_identifiers_for_model("test-model").await;
+    assert_eq!(
+        test_tools,
+        vec![
+            "shell_command".to_string(),
+            "list_mcp_resources".to_string(),
+            "list_mcp_resource_templates".to_string(),
+            "read_mcp_resource".to_string(),
+            "update_plan".to_string(),
+            "apply_patch".to_string(),
+            "grep_files".to_string(),
+            "read_file".to_string(),
+            "list_dir".to_string(),
+            "test_sync_tool".to_string(),
+            "view_image".to_string()
+        ],
+        "test-model should expose shell_command, apply_patch, and experimental tools",
+    );
+}

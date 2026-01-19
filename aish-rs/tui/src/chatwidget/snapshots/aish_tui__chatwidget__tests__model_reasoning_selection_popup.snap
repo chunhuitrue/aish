@@ -1,0 +1,12 @@
+---
+source: tui/src/chatwidget/tests.rs
+expression: popup
+---
+  Select Reasoning Level for gpt-5.1-codex-max
+
+  1. Low               Low effort
+  2. Medium (default)  Medium effort
+› 3. High (current)    High effort
+  4. Extra high        Extra high effort - uses significantly more tokens
+
+  Press enter to confirm or esc to go back

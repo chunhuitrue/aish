@@ -1,0 +1,17 @@
+---
+source: tui/src/status/tests.rs
+expression: sanitized
+---
+/status
+
+╭─────────────────────────────────────────────────────────────────────────╮
+│  Aish (v0.0.0)                                                          │
+│                                                                         │
+│  Model:          gpt-5.1-codex-max (reasoning high, summaries detailed) │
+│  Approval:       untrusted                                              │
+│  Sandbox:        current-dir-write                                      │
+│                                                                         │
+│  Token usage:    1.9K total  (1K input + 900 output)                    │
+│  5h limit:       [██████░░░░░░░░░░░░░░] 28% left (resets 03:14)         │
+│  Weekly limit:   [███████████░░░░░░░░░] 55% left (resets 03:24)         │
+╰─────────────────────────────────────────────────────────────────────────╯

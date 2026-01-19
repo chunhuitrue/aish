@@ -1,0 +1,25 @@
+[package]
+name = "aish-lmstudio"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "aish_lmstudio"
+path = "src/lib.rs"
+
+
+[dependencies]
+aish-core = { workspace = true }
+reqwest = { version = "0.12", features = ["json", "stream"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt"] }
+tracing = { version = "0.1.43", features = ["log"] }
+which = "6.0"
+
+[dev-dependencies]
+wiremock = "0.6"
+tokio = { version = "1", features = ["full"] }
+
+[lints]
+workspace = true
