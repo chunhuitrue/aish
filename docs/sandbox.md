@@ -68,17 +68,6 @@ Combines **Landlock** and **seccomp** APIs to approximate the same guarantees. K
 
 In containerized Linux environments (for example Docker), sandboxing may not work when the host or container configuration does not expose Landlock/seccomp. In those cases, configure the container to provide the isolation you need and run Codex with `--sandbox danger-full-access` (or the shorthand `--dangerously-bypass-approvals-and-sandbox`) inside that container.
 
-#### Windows
-
-Windows sandbox support remains experimental. How it works:
-
-- Launches commands inside a restricted token derived from an AppContainer profile.
-- Grants only specifically requested filesystem capabilities by attaching capability SIDs to that profile.
-- Disables outbound network access by overriding proxy-related environment variables and inserting stub executables for common network tools.
-
-Its primary limitation is that it cannot prevent file writes, deletions, or creations in any directory where the Everyone SID already has write permissions (for example, world-writable folders).
-See more discussion and limitations at [Windows Sandbox Security Details](./windows_sandbox_security.md).
-
 ## Experimenting with the Codex Sandbox
 
 To test how commands behave under Codex's sandbox, use the CLI helpers:

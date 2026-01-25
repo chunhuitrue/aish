@@ -146,9 +146,6 @@ show_raw_agent_reasoning = false
 # Disable burst-paste detection in the TUI. Default: false
 disable_paste_burst = false
 
-# Track Windows onboarding acknowledgement (Windows only). Default: false
-windows_wsl_setup_acknowledged = false
-
 # External notifier program (argv array). When unset: disabled.
 # Example: notify = ["notify-send", "Aish"]
 # notify = [ ]
@@ -209,7 +206,6 @@ unified_exec = false
 apply_patch_freeform = false
 view_image_tool = true
 web_search_request = false
-enable_experimental_windows_sandbox = false
 skills = false
 
 ################################################################################

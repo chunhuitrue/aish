@@ -35,10 +35,6 @@ Confirm your setup in three steps:
 1. Walk through the auth flows in [Authentication](./authentication.md) to ensure the correct credentials are present in `~/.aish/auth.json`.
 2. If you're on a headless or remote machine, make sure port-forwarding is configured as described in [Authentication -> Connecting on a "Headless" Machine](./authentication.md#connecting-on-a-headless-machine).
 
-### Does it work on Windows?
-
-Running Aish directly on Windows may work, but is not officially supported. We recommend using [Windows Subsystem for Linux (WSL2)](https://learn.microsoft.com/en-us/windows/wsl/install).
-
 ### Where should I start after installation?
 
 Follow the quick setup in [Install & build](./install.md) and then jump into [Getting started](./getting-started.md) for interactive usage tips, prompt examples, and AGENTS.md guidance.

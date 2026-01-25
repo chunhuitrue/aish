@@ -12,9 +12,3 @@ To that end, this crate provides an adapter between a UDS and stdio. The idea is
 ```
 aish --config mcp_servers.example={command="aish-stdio-to-uds",args=["/tmp/mcp.sock"]}
 ```
-
-Unfortunately, the Rust standard library does not provide support for UNIX domain sockets on Windows today even though support was added in October 2018 in Windows 10:
-
-https://github.com/rust-lang/rust/issues/56533
-
-As a workaround, this crate leverages https://crates.io/crates/uds_windows as a dependency on Windows.
