@@ -29,7 +29,6 @@ aish-protocol = { workspace = true }
 aish-rmcp-client = { workspace = true }
 aish-stdio-to-uds = { workspace = true }
 aish-tui = { workspace = true }
-aish-utils-absolute-path = { workspace = true }
 ctor = { workspace = true }
 libc = { workspace = true }
 owo-colors = { workspace = true }
@@ -47,7 +46,6 @@ toml = { workspace = true }
 tracing = { workspace = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]
-codex_windows_sandbox = { package = "aish-windows-sandbox", path = "../windows-sandbox-rs" }
 [dev-dependencies]
 assert_cmd = { workspace = true }
 assert_matches = { workspace = true }

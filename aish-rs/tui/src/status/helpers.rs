@@ -140,5 +140,3 @@ pub(crate) fn format_directory_display(directory: &Path, max_width: Option<usize
 
     formatted
 }
-
-

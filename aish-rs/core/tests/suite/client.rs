@@ -1019,10 +1019,6 @@ async fn azure_responses_request_includes_store_and_reasoning_ids() {
     assert_eq!(body["input"][5]["id"].as_str(), Some("custom-tool-id"));
 }
 
-
-
-
-
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn context_window_error_sets_total_tokens_to_model_window() -> anyhow::Result<()> {
     skip_if_no_network!(Ok(()));

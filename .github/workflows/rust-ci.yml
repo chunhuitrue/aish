@@ -124,12 +124,6 @@ jobs:
           - runner: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
             profile: dev
-          - runner: windows-latest
-            target: x86_64-pc-windows-msvc
-            profile: dev
-          - runner: windows-11-arm
-            target: aarch64-pc-windows-msvc
-            profile: dev
 
           # Also run representative release builds on Mac and Linux because
           # there could be release-only build errors we want to catch.
@@ -140,12 +134,6 @@ jobs:
             profile: release
           - runner: ubuntu-24.04
             target: x86_64-unknown-linux-musl
-            profile: release
-          - runner: windows-latest
-            target: x86_64-pc-windows-msvc
-            profile: release
-          - runner: windows-11-arm
-            target: aarch64-pc-windows-msvc
             profile: release
 
     steps:
@@ -361,12 +349,6 @@ jobs:
             profile: dev
           - runner: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
-            profile: dev
-          - runner: windows-latest
-            target: x86_64-pc-windows-msvc
-            profile: dev
-          - runner: windows-11-arm
-            target: aarch64-pc-windows-msvc
             profile: dev
 
     steps:

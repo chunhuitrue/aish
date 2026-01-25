@@ -127,14 +127,6 @@ pub fn get_platform_sandbox() -> Option<SandboxType> {
         Some(SandboxType::MacosSeatbelt)
     } else if cfg!(target_os = "linux") {
         Some(SandboxType::LinuxSeccomp)
-    } else if cfg!(target_os = "windows") {
-        #[cfg(target_os = "windows")]
-        {
-            if WINDOWS_SANDBOX_ENABLED.load(Ordering::Relaxed) {
-                return Some(SandboxType::WindowsRestrictedToken);
-            }
-        }
-        None
     } else {
         None
     }

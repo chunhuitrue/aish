@@ -115,9 +115,6 @@ pub enum SandboxType {
 
     /// Only available on Linux.
     LinuxSeccomp,
-
-    /// Only available on Windows.
-    WindowsRestrictedToken,
 }
 
 #[derive(Clone)]
@@ -214,105 +211,6 @@ pub(crate) async fn execute_exec_env(
     let raw_output_result = exec(params, sandbox, sandbox_policy, stdout_stream).await;
     let duration = start.elapsed();
     finalize_exec_result(raw_output_result, sandbox, duration)
-}
-
-#[cfg(target_os = "windows")]
-async fn exec_windows_sandbox(
-    params: ExecParams,
-    sandbox_policy: &SandboxPolicy,
-) -> Result<RawExecToolCallOutput> {
-    use crate::config::find_codex_home;
-    use crate::safety::is_windows_elevated_sandbox_enabled;
-    use aish_windows_sandbox::run_windows_sandbox_capture;
-    use aish_windows_sandbox::run_windows_sandbox_capture_elevated;
-
-    let ExecParams {
-        command,
-        cwd,
-        env,
-        expiration,
-        ..
-    } = params;
-    // TODO(iceweasel-oai): run_windows_sandbox_capture should support all
-    // variants of ExecExpiration, not just timeout.
-    let timeout_ms = expiration.timeout_ms();
-
-    let policy_str = serde_json::to_string(sandbox_policy).map_err(|err| {
-        AishErr::Io(io::Error::other(format!(
-            "failed to serialize Windows sandbox policy: {err}"
-        )))
-    })?;
-    let sandbox_cwd = cwd.clone();
-    let codex_home = find_codex_home().map_err(|err| {
-        AishErr::Io(io::Error::other(format!(
-            "windows sandbox: failed to resolve codex_home: {err}"
-        )))
-    })?;
-    let use_elevated = is_windows_elevated_sandbox_enabled();
-    let spawn_res = tokio::task::spawn_blocking(move || {
-        if use_elevated {
-            run_windows_sandbox_capture_elevated(
-                policy_str.as_str(),
-                &sandbox_cwd,
-                codex_home.as_ref(),
-                command,
-                &cwd,
-                env,
-                timeout_ms,
-            )
-        } else {
-            run_windows_sandbox_capture(
-                policy_str.as_str(),
-                &sandbox_cwd,
-                codex_home.as_ref(),
-                command,
-                &cwd,
-                env,
-                timeout_ms,
-            )
-        }
-    })
-    .await;
-
-    let capture = match spawn_res {
-        Ok(Ok(v)) => v,
-        Ok(Err(err)) => {
-            return Err(AishErr::Io(io::Error::other(format!(
-                "windows sandbox: {err}"
-            ))));
-        }
-        Err(join_err) => {
-            return Err(AishErr::Io(io::Error::other(format!(
-                "windows sandbox join error: {join_err}"
-            ))));
-        }
-    };
-
-    let exit_status = synthetic_exit_status(capture.exit_code);
-    let stdout = StreamOutput {
-        text: capture.stdout,
-        truncated_after_lines: None,
-    };
-    let stderr = StreamOutput {
-        text: capture.stderr,
-        truncated_after_lines: None,
-    };
-    // Best-effort aggregate: stdout then stderr
-    let mut aggregated = Vec::with_capacity(stdout.text.len() + stderr.text.len());
-    append_all(&mut aggregated, &stdout.text);
-    append_all(&mut aggregated, &stderr.text);
-    let aggregated_output = StreamOutput {
-        text: aggregated,
-        truncated_after_lines: None,
-    };
-
-    Ok(RawExecToolCallOutput {
-        exit_status,
-        stdout,
-        stderr,
-        aggregated_output,
-        timed_out: capture.timed_out,
-    })
 }
 
 fn finalize_exec_result(
@@ -742,14 +640,6 @@ fn synthetic_exit_status(code: i32) -> ExitStatus {
     std::process::ExitStatus::from_raw(code)
 }
 
-#[cfg(windows)]
-fn synthetic_exit_status(code: i32) -> ExitStatus {
-    use std::os::windows::process::ExitStatusExt;
-    // On Windows the raw status is a u32. Use a direct cast to avoid
-    // panicking on negative i32 values produced by prior narrowing casts.
-    std::process::ExitStatus::from_raw(code as u32)
-}
-
 #[cfg(unix)]
 fn kill_child_process_group(child: &mut Child) -> io::Result<()> {
     use std::io::ErrorKind;
@@ -954,17 +844,6 @@ mod tests {
             "/bin/sh".to_string(),
             "-c".to_string(),
             "sleep 30".to_string(),
-        ]
-    }
-
-    #[cfg(windows)]
-    fn long_running_command() -> Vec<String> {
-        vec![
-            "powershell.exe".to_string(),
-            "-NonInteractive".to_string(),
-            "-NoLogo".to_string(),
-            "-Command".to_string(),
-            "Start-Sleep -Seconds 30".to_string(),
         ]
     }
 }

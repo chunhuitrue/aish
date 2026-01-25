@@ -1,7 +1,6 @@
 use aish_arg0::arg0_dispatch_or_else;
 use aish_cli::LandlockCommand;
 use aish_cli::SeatbeltCommand;
-use aish_cli::WindowsCommand;
 use aish_common::CliConfigOverrides;
 use aish_exec::Cli as ExecCli;
 use aish_execpolicy::ExecPolicyCheckCommand;
@@ -120,9 +119,6 @@ enum SandboxCommand {
     /// Run a command under Landlock+seccomp (Linux only).
     #[clap(visible_alias = "landlock")]
     Linux(LandlockCommand),
-
-    /// Run a command under Windows restricted token (Windows only).
-    Windows(WindowsCommand),
 }
 
 #[derive(Debug, Parser)]
@@ -329,17 +325,6 @@ async fn cli_main(aish_linux_sandbox_exe: Option<PathBuf>) -> anyhow::Result<()>
                 );
                 aish_cli::debug_sandbox::run_command_under_landlock(
                     landlock_cli,
-                    aish_linux_sandbox_exe,
-                )
-                .await?;
-            }
-            SandboxCommand::Windows(mut windows_cli) => {
-                prepend_config_flags(
-                    &mut windows_cli.config_overrides,
-                    root_config_overrides.clone(),
-                );
-                aish_cli::debug_sandbox::run_command_under_windows(
-                    windows_cli,
                     aish_linux_sandbox_exe,
                 )
                 .await?;

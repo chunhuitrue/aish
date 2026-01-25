@@ -142,14 +142,6 @@ impl SandboxManager {
                     Some("aish-linux-sandbox".to_string()),
                 )
             }
-            // On Windows, the restricted token sandbox executes in-process via the
-            // aish-windows-sandbox crate. We leave the command unchanged here and
-            // branch during execution based on the sandbox type.
-            #[cfg(target_os = "windows")]
-            SandboxType::WindowsRestrictedToken => (command, HashMap::new(), None),
-            // When building for non-Windows targets, this variant is never constructed.
-            #[cfg(not(target_os = "windows"))]
-            SandboxType::WindowsRestrictedToken => (command, HashMap::new(), None),
         };
 
         env.extend(sandbox_env);

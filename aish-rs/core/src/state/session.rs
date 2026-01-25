@@ -66,4 +66,3 @@ impl SessionState {
         self.history.get_total_token_usage()
     }
 }
-

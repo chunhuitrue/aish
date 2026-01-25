@@ -1075,7 +1075,6 @@ impl Config {
     }
 
     pub fn set_windows_sandbox_globally(&mut self, value: bool) {
-        crate::safety::set_windows_sandbox_enabled(value);
         if value {
             self.features.enable(Feature::WindowsSandbox);
         } else {

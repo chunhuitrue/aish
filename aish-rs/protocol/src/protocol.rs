@@ -897,8 +897,6 @@ pub struct TokenCountEvent {
     pub info: Option<TokenUsageInfo>,
 }
 
-
-
 // Includes prompts, tools and space to call compact.
 const BASELINE_TOKENS: i64 = 12000;
 

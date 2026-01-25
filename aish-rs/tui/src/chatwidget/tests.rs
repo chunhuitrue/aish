@@ -18,7 +18,6 @@ use aish_core::protocol::ApplyPatchApprovalRequestEvent;
 use aish_core::protocol::BackgroundEventEvent;
 
 use aish_core::protocol::Event;
-use aish_protocol::openai_models::ReasoningEffort as ReasoningEffortConfig;
 use aish_core::protocol::EventMsg;
 use aish_core::protocol::ExecApprovalRequestEvent;
 use aish_core::protocol::ExecCommandBeginEvent;
@@ -31,6 +30,7 @@ use aish_core::protocol::McpStartupUpdateEvent;
 use aish_core::protocol::Op;
 use aish_core::protocol::PatchApplyBeginEvent;
 use aish_core::protocol::PatchApplyEndEvent;
+use aish_protocol::openai_models::ReasoningEffort as ReasoningEffortConfig;
 
 use aish_core::protocol::StreamErrorEvent;
 use aish_core::protocol::TaskCompleteEvent;
@@ -75,8 +75,6 @@ async fn test_config() -> Config {
         .await
         .expect("config")
 }
-
-
 
 #[tokio::test]
 async fn resumed_initial_messages_render_history() {
@@ -151,9 +149,7 @@ async fn token_count_none_resets_context_indicator() {
 
     chat.handle_codex_event(Event {
         id: "token-cleared".into(),
-        msg: EventMsg::TokenCount(TokenCountEvent {
-            info: None,
-        }),
+        msg: EventMsg::TokenCount(TokenCountEvent { info: None }),
     });
     assert_eq!(chat.bottom_pane.context_window_percent(), None);
 }
@@ -343,24 +339,6 @@ fn make_token_info(total_tokens: i64, context_window: i64) -> TokenUsageInfo {
         model_context_window: Some(context_window),
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 // (removed experimental resize snapshot test)
 

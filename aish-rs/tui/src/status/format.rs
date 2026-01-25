@@ -41,8 +41,6 @@ impl FieldFormatter {
         Line::from(self.full_spans(label, value_spans))
     }
 
-
-
     pub(crate) fn value_width(&self, available_inner_width: usize) -> usize {
         available_inner_width.saturating_sub(self.value_offset)
     }

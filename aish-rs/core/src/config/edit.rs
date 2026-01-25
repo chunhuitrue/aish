@@ -573,8 +573,6 @@ impl ConfigEditsBuilder {
         self
     }
 
-
-
     pub fn set_windows_wsl_setup_acknowledged(mut self, acknowledged: bool) -> Self {
         self.edits
             .push(ConfigEdit::SetWindowsWslSetupAcknowledged(acknowledged));
@@ -911,8 +909,6 @@ hide_full_access_warning = true
 "#;
         assert_eq!(contents, expected);
     }
-
-
 
     #[test]
     fn blocking_replace_mcp_servers_round_trips() {

@@ -644,7 +644,6 @@ mod tests {
         let err = UsageLimitReachedError {
             plan_type: Some(PlanType::Known(KnownPlan::Free)),
             resets_at: None,
-
         };
         assert_eq!(
             err.to_string(),
@@ -657,7 +656,6 @@ mod tests {
         let err = UsageLimitReachedError {
             plan_type: None,
             resets_at: None,
-
         };
         assert_eq!(
             err.to_string(),
@@ -674,7 +672,6 @@ mod tests {
             let err = UsageLimitReachedError {
                 plan_type: Some(PlanType::Known(KnownPlan::Team)),
                 resets_at: Some(resets_at),
-    
             };
             let expected = format!(
                 "You've hit your usage limit. To get more access now, send a request to your admin or try again at {expected_time}."
@@ -688,7 +685,6 @@ mod tests {
         let err = UsageLimitReachedError {
             plan_type: Some(PlanType::Known(KnownPlan::Business)),
             resets_at: None,
-
         };
         assert_eq!(
             err.to_string(),
@@ -701,7 +697,6 @@ mod tests {
         let err = UsageLimitReachedError {
             plan_type: Some(PlanType::Known(KnownPlan::Enterprise)),
             resets_at: None,
-
         };
         assert_eq!(
             err.to_string(),
@@ -718,7 +713,6 @@ mod tests {
             let err = UsageLimitReachedError {
                 plan_type: Some(PlanType::Known(KnownPlan::Pro)),
                 resets_at: Some(resets_at),
-    
             };
             let expected = format!("You've hit your usage limit. Try again at {expected_time}.");
             assert_eq!(err.to_string(), expected);
@@ -734,7 +728,6 @@ mod tests {
             let err = UsageLimitReachedError {
                 plan_type: None,
                 resets_at: Some(resets_at),
-    
             };
             let expected = format!("You've hit your usage limit. Try again at {expected_time}.");
             assert_eq!(err.to_string(), expected);

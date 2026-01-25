@@ -130,9 +130,7 @@ pub(crate) struct App {
     /// Ignore the next ShutdownComplete event when we're intentionally
     /// stopping a conversation (e.g., before starting a new one).
     suppress_shutdown_complete: bool,
-
     // One-shot suppression of the next world-writable scan after user confirmation.
-    skip_world_writable_scan_once: bool,
 }
 
 impl App {
@@ -180,7 +178,7 @@ impl App {
         let model_family = conversation_manager
             .get_models_manager()
             .construct_model_family(&model, &config);
-        let mut chat_widget = match resume_selection {
+        let chat_widget = match resume_selection {
             ResumeSelection::StartFresh | ResumeSelection::Exit => {
                 let init = crate::chatwidget::ChatWidgetInit {
                     config: config.clone(),
@@ -225,8 +223,6 @@ impl App {
             }
         };
 
-        chat_widget.maybe_prompt_windows_sandbox_enable();
-
         let file_search = FileSearchManager::new(config.cwd.clone(), app_event_tx.clone());
 
         let mut app = Self {
@@ -245,32 +241,7 @@ impl App {
             commit_anim_running: Arc::new(AtomicBool::new(false)),
             backtrack: BacktrackState::default(),
             suppress_shutdown_complete: false,
-            skip_world_writable_scan_once: false,
         };
-
-        // On startup, if Agent mode (current-dir-write) or ReadOnly is active, warn about world-writable dirs on Windows.
-        #[cfg(target_os = "windows")]
-        {
-            let should_check = aish_core::get_platform_sandbox().is_some()
-                && matches!(
-                    app.config.sandbox_policy.get(),
-                    aish_core::protocol::SandboxPolicy::CurrentDirWrite { .. }
-                        | aish_core::protocol::SandboxPolicy::ReadOnly
-                )
-                && !app
-                    .config
-                    .notices
-                    .hide_world_writable_warning
-                    .unwrap_or(false);
-            if should_check {
-                let cwd = app.config.cwd.clone();
-                let env_map: std::collections::HashMap<String, String> = std::env::vars().collect();
-                let tx = app.app_event_tx.clone();
-                let logs_base_dir = app.config.codex_home.clone();
-                let sandbox_policy = app.config.sandbox_policy.get().clone();
-                Self::spawn_world_writable_scan(cwd, env_map, logs_base_dir, sandbox_policy, tx);
-            }
-        }
 
         let tui_events = tui.event_stream();
         tokio::pin!(tui_events);
@@ -522,87 +493,9 @@ impl App {
             AppEvent::OpenFullAccessConfirmation { preset } => {
                 self.chat_widget.open_full_access_confirmation(preset);
             }
-            AppEvent::OpenWorldWritableWarningConfirmation {
-                preset,
-                sample_paths,
-                extra_count,
-                failed_scan,
-            } => {
-                self.chat_widget.open_world_writable_warning_confirmation(
-                    preset,
-                    sample_paths,
-                    extra_count,
-                    failed_scan,
-                );
-            }
             AppEvent::LaunchExternalEditor => {
                 if self.chat_widget.external_editor_state() == ExternalEditorState::Active {
                     self.launch_external_editor(tui).await;
-                }
-            }
-            AppEvent::OpenWindowsSandboxEnablePrompt { preset } => {
-                self.chat_widget.open_windows_sandbox_enable_prompt(preset);
-            }
-            AppEvent::EnableWindowsSandboxForAgentMode { preset } => {
-                #[cfg(target_os = "windows")]
-                {
-                    let profile = self.active_profile.as_deref();
-                    let feature_key = Feature::WindowsSandbox.key();
-                    match ConfigEditsBuilder::new(&self.config.codex_home)
-                        .with_profile(profile)
-                        .set_feature_enabled(feature_key, true)
-                        .apply()
-                        .await
-                    {
-                        Ok(()) => {
-                            self.config.set_windows_sandbox_globally(true);
-                            self.chat_widget.clear_forced_auto_mode_downgrade();
-                            if let Some((sample_paths, extra_count, failed_scan)) =
-                                self.chat_widget.world_writable_warning_details()
-                            {
-                                self.app_event_tx.send(
-                                    AppEvent::OpenWorldWritableWarningConfirmation {
-                                        preset: Some(preset.clone()),
-                                        sample_paths,
-                                        extra_count,
-                                        failed_scan,
-                                    },
-                                );
-                            } else {
-                                self.app_event_tx.send(AppEvent::CodexOp(
-                                    Op::OverrideTurnContext {
-                                        cwd: None,
-                                        approval_policy: Some(preset.approval),
-                                        sandbox_policy: Some(preset.sandbox.clone()),
-                                        model: None,
-                                        effort: None,
-                                        summary: None,
-                                    },
-                                ));
-                                self.app_event_tx
-                                    .send(AppEvent::UpdateAskForApprovalPolicy(preset.approval));
-                                self.app_event_tx
-                                    .send(AppEvent::UpdateSandboxPolicy(preset.sandbox.clone()));
-                                self.chat_widget.add_info_message(
-                                    "Enabled experimental Windows sandbox.".to_string(),
-                                    None,
-                                );
-                            }
-                        }
-                        Err(err) => {
-                            tracing::error!(
-                                error = %err,
-                                "failed to enable Windows sandbox feature"
-                            );
-                            self.chat_widget.add_error_message(format!(
-                                "Failed to enable the Windows sandbox feature: {err}"
-                            ));
-                        }
-                    }
-                }
-                #[cfg(not(target_os = "windows"))]
-                {
-                    let _ = preset;
                 }
             }
             AppEvent::UpdateAskForApprovalPolicy(policy) => {
@@ -622,57 +515,15 @@ impl App {
                         .add_error_message(format!("Failed to set sandbox policy: {err}"));
                     return Ok(true);
                 }
-                #[cfg(target_os = "windows")]
-                if !matches!(&policy, aish_core::protocol::SandboxPolicy::ReadOnly)
-                    || aish_core::get_platform_sandbox().is_some()
-                {
-                    self.config.forced_auto_mode_downgraded_on_windows = false;
-                }
                 if let Err(err) = self.chat_widget.set_sandbox_policy(policy) {
                     tracing::warn!(%err, "failed to set sandbox policy on chat config");
                     self.chat_widget
                         .add_error_message(format!("Failed to set sandbox policy: {err}"));
                     return Ok(true);
                 }
-
-                // If sandbox policy becomes current-dir-write or read-only, run the Windows world-writable scan.
-                #[cfg(target_os = "windows")]
-                {
-                    // One-shot suppression if the user just confirmed continue.
-                    if self.skip_world_writable_scan_once {
-                        self.skip_world_writable_scan_once = false;
-                        return Ok(true);
-                    }
-
-                    let should_check = aish_core::get_platform_sandbox().is_some()
-                        && policy_is_current_dir_write_or_ro
-                        && !self.chat_widget.world_writable_warning_hidden();
-                    if should_check {
-                        let cwd = self.config.cwd.clone();
-                        let env_map: std::collections::HashMap<String, String> =
-                            std::env::vars().collect();
-                        let tx = self.app_event_tx.clone();
-                        let logs_base_dir = self.config.codex_home.clone();
-                        let sandbox_policy = self.config.sandbox_policy.get().clone();
-                        Self::spawn_world_writable_scan(
-                            cwd,
-                            env_map,
-                            logs_base_dir,
-                            sandbox_policy,
-                            tx,
-                        );
-                    }
-                }
-            }
-            AppEvent::SkipNextWorldWritableScan => {
-                self.skip_world_writable_scan_once = true;
             }
             AppEvent::UpdateFullAccessWarningAcknowledged(ack) => {
                 self.chat_widget.set_full_access_warning_acknowledged(ack);
-            }
-            AppEvent::UpdateWorldWritableWarningAcknowledged(ack) => {
-                self.chat_widget
-                    .set_world_writable_warning_acknowledged(ack);
             }
             AppEvent::PersistFullAccessWarningAcknowledged => {
                 if let Err(err) = ConfigEditsBuilder::new(&self.config.codex_home)
@@ -686,21 +537,6 @@ impl App {
                     );
                     self.chat_widget.add_error_message(format!(
                         "Failed to save full access confirmation preference: {err}"
-                    ));
-                }
-            }
-            AppEvent::PersistWorldWritableWarningAcknowledged => {
-                if let Err(err) = ConfigEditsBuilder::new(&self.config.codex_home)
-                    .set_hide_world_writable_warning(true)
-                    .apply()
-                    .await
-                {
-                    tracing::error!(
-                        error = %err,
-                        "failed to persist world-writable warning acknowledgement"
-                    );
-                    self.chat_widget.add_error_message(format!(
-                        "Failed to save Agent mode warning preference: {err}"
                     ));
                 }
             }
@@ -750,8 +586,6 @@ impl App {
     pub(crate) fn token_usage(&self) -> aish_core::protocol::TokenUsage {
         self.chat_widget.token_usage()
     }
-
-
 
     async fn launch_external_editor(&mut self, tui: &mut tui::Tui) {
         let editor_cmd = match external_editor::resolve_editor_command() {
@@ -889,34 +723,6 @@ impl App {
             }
         };
     }
-
-    #[cfg(target_os = "windows")]
-    fn spawn_world_writable_scan(
-        cwd: PathBuf,
-        env_map: std::collections::HashMap<String, String>,
-        logs_base_dir: PathBuf,
-        sandbox_policy: aish_core::protocol::SandboxPolicy,
-        tx: AppEventSender,
-    ) {
-        tokio::task::spawn_blocking(move || {
-            let result = aish_windows_sandbox::apply_world_writable_scan_and_denies(
-                &logs_base_dir,
-                &cwd,
-                &env_map,
-                &sandbox_policy,
-                Some(logs_base_dir.as_path()),
-            );
-            if result.is_err() {
-                // Scan failed: warn without examples.
-                tx.send(AppEvent::OpenWorldWritableWarningConfirmation {
-                    preset: None,
-                    sample_paths: Vec::new(),
-                    extra_count: 0usize,
-                    failed_scan: true,
-                });
-            }
-        });
-    }
 }
 
 #[cfg(test)]
@@ -969,7 +775,6 @@ mod tests {
             commit_anim_running: Arc::new(AtomicBool::new(false)),
             backtrack: BacktrackState::default(),
             suppress_shutdown_complete: false,
-            skip_world_writable_scan_once: false,
         }
     }
 
@@ -1004,14 +809,11 @@ mod tests {
                 commit_anim_running: Arc::new(AtomicBool::new(false)),
                 backtrack: BacktrackState::default(),
                 suppress_shutdown_complete: false,
-                skip_world_writable_scan_once: false,
             },
             rx,
             op_rx,
         )
     }
-
-
 
     #[tokio::test]
     async fn backtrack_selection_with_duplicate_history_targets_unique_turn() {
