@@ -61,7 +61,7 @@ dependencies = [
 
 [[package]]
 name = "aish-ansi-escape"
-version = "0.1.0-alpha.1"
+version = "0.0.0"
 dependencies = [
  "ansi-to-tui",
  "ratatui",
@@ -70,7 +70,7 @@ dependencies = [
 
 [[package]]
 name = "aish-api"
-version = "0.1.0-alpha.1"
+version = "0.0.0"
 dependencies = [
  "aish-client",
  "aish-protocol",
@@ -96,7 +96,7 @@ dependencies = [
 
 [[package]]
 name = "aish-apply-patch"
-version = "0.1.0-alpha.1"
+version = "0.0.0"
 dependencies = [
  "aish-utils-cargo-bin",
  "anyhow",
@@ -112,7 +112,7 @@ dependencies = [
 
 [[package]]
 name = "aish-arg0"
-version = "0.1.0-alpha.1"
+version = "0.0.0"
 dependencies = [
  "aish-apply-patch",
  "aish-core",
@@ -125,7 +125,7 @@ dependencies = [
 
 [[package]]
 name = "aish-async-utils"
-version = "0.1.0-alpha.1"
+version = "0.0.0"
 dependencies = [
  "async-trait",
  "pretty_assertions",
@@ -135,7 +135,7 @@ dependencies = [
 
 [[package]]
 name = "aish-cli"
-version = "0.1.0-alpha.1"
+version = "0.0.0"
 dependencies = [
  "aish-arg0",
  "aish-common",
@@ -169,7 +169,7 @@ dependencies = [
 
 [[package]]
 name = "aish-client"
-version = "0.1.0-alpha.1"
+version = "0.0.0"
 dependencies = [
  "async-trait",
  "bytes",
@@ -187,7 +187,7 @@ dependencies = [
 
 [[package]]
 name = "aish-common"
-version = "0.1.0-alpha.1"
+version = "0.0.0"
 dependencies = [
  "aish-core",
  "aish-lmstudio",
@@ -201,7 +201,7 @@ dependencies = [
 
 [[package]]
 name = "aish-core"
-version = "0.1.0-alpha.1"
+version = "0.0.0"
 dependencies = [
  "aish-api",
  "aish-apply-patch",
@@ -283,7 +283,7 @@ dependencies = [
 
 [[package]]
 name = "aish-exec"
-version = "0.1.0-alpha.1"
+version = "0.0.0"
 dependencies = [
  "aish-arg0",
  "aish-common",
@@ -316,7 +316,7 @@ dependencies = [
 
 [[package]]
 name = "aish-execpolicy"
-version = "0.1.0-alpha.1"
+version = "0.0.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -332,7 +332,7 @@ dependencies = [
 
 [[package]]
 name = "aish-file-search"
-version = "0.1.0-alpha.1"
+version = "0.0.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -346,7 +346,7 @@ dependencies = [
 
 [[package]]
 name = "aish-git"
-version = "0.1.0-alpha.1"
+version = "0.0.0"
 dependencies = [
  "assert_matches",
  "once_cell",
@@ -362,7 +362,7 @@ dependencies = [
 
 [[package]]
 name = "aish-keyring-store"
-version = "0.1.0-alpha.1"
+version = "0.0.0"
 dependencies = [
  "keyring",
  "tracing",
@@ -370,7 +370,7 @@ dependencies = [
 
 [[package]]
 name = "aish-linux-sandbox"
-version = "0.1.0-alpha.1"
+version = "0.0.0"
 dependencies = [
  "aish-core",
  "aish-protocol",
@@ -386,7 +386,7 @@ dependencies = [
 
 [[package]]
 name = "aish-lmstudio"
-version = "0.1.0-alpha.1"
+version = "0.0.0"
 dependencies = [
  "aish-core",
  "reqwest",
@@ -399,7 +399,7 @@ dependencies = [
 
 [[package]]
 name = "aish-ollama"
-version = "0.1.0-alpha.1"
+version = "0.0.0"
 dependencies = [
  "aish-core",
  "assert_matches",
@@ -415,7 +415,7 @@ dependencies = [
 
 [[package]]
 name = "aish-process-hardening"
-version = "0.1.0-alpha.1"
+version = "0.0.0"
 dependencies = [
  "libc",
  "pretty_assertions",
@@ -423,7 +423,7 @@ dependencies = [
 
 [[package]]
 name = "aish-protocol"
-version = "0.1.0-alpha.1"
+version = "0.0.0"
 dependencies = [
  "aish-git",
  "aish-utils-absolute-path",
@@ -450,7 +450,7 @@ dependencies = [
 
 [[package]]
 name = "aish-rmcp-client"
-version = "0.1.0-alpha.1"
+version = "0.0.0"
 dependencies = [
  "aish-keyring-store",
  "aish-protocol",
@@ -480,7 +480,7 @@ dependencies = [
 
 [[package]]
 name = "aish-stdio-to-uds"
-version = "0.1.0-alpha.1"
+version = "0.0.0"
 dependencies = [
  "aish-utils-cargo-bin",
  "anyhow",
@@ -492,7 +492,7 @@ dependencies = [
 
 [[package]]
 name = "aish-tui"
-version = "0.1.0-alpha.1"
+version = "0.0.0"
 dependencies = [
  "aish-ansi-escape",
  "aish-arg0",
@@ -557,7 +557,7 @@ dependencies = [
 
 [[package]]
 name = "aish-utils-absolute-path"
-version = "0.1.0-alpha.1"
+version = "0.0.0"
 dependencies = [
  "path-absolutize",
  "schemars 0.8.22",
@@ -569,7 +569,7 @@ dependencies = [
 
 [[package]]
 name = "aish-utils-cache"
-version = "0.1.0-alpha.1"
+version = "0.0.0"
 dependencies = [
  "lru 0.16.2",
  "sha1",
@@ -578,7 +578,7 @@ dependencies = [
 
 [[package]]
 name = "aish-utils-cargo-bin"
-version = "0.1.0-alpha.1"
+version = "0.0.0"
 dependencies = [
  "assert_cmd",
  "thiserror 2.0.17",
@@ -586,7 +586,7 @@ dependencies = [
 
 [[package]]
 name = "aish-utils-image"
-version = "0.1.0-alpha.1"
+version = "0.0.0"
 dependencies = [
  "aish-utils-cache",
  "base64",
@@ -598,7 +598,7 @@ dependencies = [
 
 [[package]]
 name = "aish-utils-json-to-toml"
-version = "0.1.0-alpha.1"
+version = "0.0.0"
 dependencies = [
  "pretty_assertions",
  "serde_json",
@@ -607,7 +607,7 @@ dependencies = [
 
 [[package]]
 name = "aish-utils-pty"
-version = "0.1.0-alpha.1"
+version = "0.0.0"
 dependencies = [
  "anyhow",
  "filedescriptor",
@@ -621,7 +621,7 @@ dependencies = [
 
 [[package]]
 name = "aish-utils-readiness"
-version = "0.1.0-alpha.1"
+version = "0.0.0"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -632,7 +632,7 @@ dependencies = [
 
 [[package]]
 name = "aish-utils-string"
-version = "0.1.0-alpha.1"
+version = "0.0.0"
 
 [[package]]
 name = "allocative"
@@ -1468,7 +1468,7 @@ checksum = "773648b94d0e5d620f64f280777445740e61fe701025087ec8b57f45c791888b"
 
 [[package]]
 name = "core_test_support"
-version = "0.1.0-alpha.1"
+version = "0.0.0"
 dependencies = [
  "aish-core",
  "aish-protocol",
@@ -3423,7 +3423,7 @@ checksum = "47e1ffaa40ddd1f3ed91f717a33c8c0ee23fff369e3aa8772b9605cc1d22f4c3"
 
 [[package]]
 name = "mcp-types"
-version = "0.1.0-alpha.1"
+version = "0.0.0"
 dependencies = [
  "schemars 0.8.22",
  "serde",
