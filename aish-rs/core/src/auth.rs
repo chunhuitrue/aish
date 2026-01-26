@@ -1,4 +1,3 @@
-use std::env;
 use std::fmt::Debug;
 use std::path::Path;
 use std::path::PathBuf;
@@ -30,21 +29,14 @@ impl PartialEq for AishAuth {
 static TEST_AUTH_TEMP_DIRS: Lazy<Mutex<Vec<TempDir>>> = Lazy::new(|| Mutex::new(Vec::new()));
 
 impl AishAuth {
-    /// Loads the available auth information from environment variables.
+    /// Loads auth information from legacy environment variables. This currently always returns
+    /// `None`.
     pub fn from_env() -> Option<AishAuth> {
         load_auth(true)
     }
 
     pub async fn get_token(&self) -> Result<String, std::io::Error> {
         Ok(self.api_key.clone().unwrap_or_default())
-    }
-
-    pub fn get_account_id(&self) -> Option<String> {
-        None
-    }
-
-    pub fn get_account_email(&self) -> Option<String> {
-        None
     }
 
     pub fn from_api_key(api_key: &str) -> Self {
@@ -61,32 +53,7 @@ impl AishAuth {
     }
 }
 
-pub const OPENAI_API_KEY_ENV_VAR: &str = "OPENAI_API_KEY";
-pub const AISH_API_KEY_ENV_VAR: &str = "AISH_API_KEY";
-
-pub fn read_openai_api_key_from_env() -> Option<String> {
-    env::var(OPENAI_API_KEY_ENV_VAR)
-        .ok()
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty())
-}
-
-pub fn read_aish_api_key_from_env() -> Option<String> {
-    std::env::var(AISH_API_KEY_ENV_VAR)
-        .ok()
-        .filter(|s| !s.is_empty())
-}
-
-fn load_auth(enable_codex_api_key_env: bool) -> Option<AishAuth> {
-    if enable_codex_api_key_env && let Some(api_key) = read_aish_api_key_from_env() {
-        return Some(AishAuth::from_api_key(&api_key));
-    }
-
-    // Try OPENAI_API_KEY as fallback
-    if let Some(api_key) = read_openai_api_key_from_env() {
-        return Some(AishAuth::from_api_key(&api_key));
-    }
-
+fn load_auth(_enable_codex_api_key_env: bool) -> Option<AishAuth> {
     None
 }
 
@@ -109,8 +76,8 @@ mod tests {
     }
 }
 
-/// Central manager providing a single source of truth for environment-derived
-/// authentication data. It loads once (or on preference change) and then
+/// Central manager providing a single source of truth for legacy
+/// environment-derived authentication data. It loads once (or on preference change) and then
 /// hands out cloned `AishAuth` values so the rest of the program has a
 /// consistent snapshot.
 #[derive(Debug)]
@@ -121,7 +88,7 @@ pub struct AuthManager {
 }
 
 impl AuthManager {
-    /// Create a new manager loading the initial auth from environment variables.
+    /// Create a new manager loading the initial auth from legacy environment variables.
     /// Errors loading auth are swallowed; `auth()` will simply return `None`
     /// in that case so callers can treat it as an unauthenticated state.
     pub fn new(codex_home: PathBuf, enable_codex_api_key_env: bool) -> Self {

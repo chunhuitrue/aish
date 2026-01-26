@@ -246,7 +246,7 @@ experimental_use_freeform_apply_patch = false
 ################################################################################
 
 # Built-ins include:
-# - openai (Responses API; requires login or OPENAI_API_KEY via auth flow)
+# - openai (Responses API; requires an API key configured via model provider auth)
 # - oss (Chat Completions API; defaults to http://localhost:11434/v1)
 
 [model_providers]

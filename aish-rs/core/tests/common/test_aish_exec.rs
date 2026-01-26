@@ -1,5 +1,4 @@
 #![allow(clippy::expect_used)]
-use aish_core::auth::AISH_API_KEY_ENV_VAR;
 use std::fs;
 use std::path::Path;
 use tempfile::TempDir;
@@ -17,13 +16,16 @@ impl TestAishExecBuilder {
         );
         cmd.current_dir(self.cwd.path())
             .env("AISH_HOME", self.home.path())
-            .env(AISH_API_KEY_ENV_VAR, "dummy");
+            .env("AISH_MODEL_API_KEY", "dummy");
         cmd
     }
     pub fn cmd_with_server(&self, server: &MockServer) -> assert_cmd::Command {
-        let mut cmd = self.cmd();
+        let cmd = self.cmd();
         let base = format!("{}/v1", server.uri());
-        cmd.env("OPENAI_BASE_URL", base);
+        let config_path = self.home.path().join("config.toml");
+        let config = fs::read_to_string(&config_path).expect("read config.toml");
+        let config = config.replace("http://127.0.0.1:1/v1", &base);
+        fs::write(&config_path, config).expect("write updated config.toml");
         cmd
     }
 
@@ -40,7 +42,14 @@ pub fn test_aish_exec() -> TestAishExecBuilder {
     // Create a config file with a default model since built-in presets have been removed
     // Also enable include_apply_patch_tool for apply_patch tests
     let config_content = r#"model = "test-model"
+model_provider = "test_provider"
 include_apply_patch_tool = true
+
+[model_providers.test_provider]
+name = "Test Provider"
+base_url = "http://127.0.0.1:1/v1"
+wire_api = "responses"
+env_key = "AISH_MODEL_API_KEY"
 "#;
     fs::write(home.path().join("config.toml"), config_content).expect("write default config.toml");
     TestAishExecBuilder {

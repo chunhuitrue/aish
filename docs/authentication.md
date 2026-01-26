@@ -1,33 +1,33 @@
 # Authentication
 
-Aish uses environment variables to authenticate with API providers. This is the only supported authentication method.
+Aish authenticates using the active model provider configuration from `~/.aish/config.toml`.
 
 ## Setting up your API key
 
-### OpenAI API key
+### Recommended: provider env_key
 
-Set your OpenAI API key via the `OPENAI_API_KEY` environment variable:
+Configure an environment variable name on your active model provider via `env_key`, then export it before launching Aish.
 
-```shell
-export OPENAI_API_KEY="sk-your-key-here"
+Example:
+
+```toml
+[model_providers.openai]
+env_key = "AISH_MODEL_API_KEY"
 ```
-
-You can add this to your shell profile (e.g., `~/.bashrc`, `~/.zshrc`) to make it persistent:
 
 ```bash
-echo 'export OPENAI_API_KEY="sk-your-key-here"' >> ~/.bashrc
-source ~/.bashrc
+export AISH_MODEL_API_KEY="sk-your-key-here"
+aish
 ```
 
-### Aish API key
+### Alternative: experimental bearer token
 
-Alternatively, you can use the `AISH_API_KEY` environment variable:
+For development-only setups, you can set a direct bearer token in `config.toml`:
 
-```shell
-export AISH_API_KEY="sk-your-key-here"
+```toml
+[model_providers.openai]
+experimental_bearer_token = "sk-your-key-here"
 ```
-
-`AISH_API_KEY` takes precedence over `OPENAI_API_KEY` if both are set.
 
 ## Model provider specific keys
 
@@ -49,20 +49,9 @@ If your API key is set correctly, Aish will start without authentication errors.
 
 If you see an error about a missing API key:
 
-1. Verify the environment variable is set:
-   ```shell
-   echo $OPENAI_API_KEY
-   # or
-   echo $AISH_API_KEY
-   ```
-
-2. Make sure you've exported the variable in your current shell session:
-
-   ```shell
-   export OPENAI_API_KEY="sk-your-key-here"
-   ```
-
-3. If using a model provider's custom `env_key`, verify it's set correctly.
+1. Verify `model_providers.<id>.env_key` is configured for your active provider.
+2. Verify the referenced environment variable is set and non-empty.
+3. If using `experimental_bearer_token`, verify it is set for the active provider.
 
 ### Invalid API key
 

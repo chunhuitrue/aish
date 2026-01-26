@@ -56,9 +56,7 @@ async fn chat_mode_stream_cli() {
         .arg("-C")
         .arg(env!("CARGO_MANIFEST_DIR"))
         .arg("hello?");
-    cmd.env("AISH_HOME", home.path())
-        .env("OPENAI_API_KEY", "dummy")
-        .env("OPENAI_BASE_URL", format!("{}/v1", server.uri()));
+    cmd.env("AISH_HOME", home.path());
 
     let output = cmd.output().unwrap();
     println!("Status: {}", output.status);
@@ -144,9 +142,7 @@ async fn exec_cli_applies_experimental_instructions_file() {
         .arg("-C")
         .arg(env!("CARGO_MANIFEST_DIR"))
         .arg("hello?\n");
-    cmd.env("AISH_HOME", home.path())
-        .env("OPENAI_API_KEY", "dummy")
-        .env("OPENAI_BASE_URL", format!("{}/v1", server.uri()));
+    cmd.env("AISH_HOME", home.path());
 
     let output = cmd.output().unwrap();
     println!("Status: {}", output.status);
@@ -181,20 +177,23 @@ async fn responses_api_stream_cli() {
 
     let fixture =
         std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/cli_responses_fixture.sse");
+    let provider_override = "model_providers.mock={ name = \"mock\", base_url = \"http://unused.local/v1\", env_key = \"PATH\", wire_api = \"responses\" }";
 
     let home = TempDir::new().unwrap();
     let bin = aish_utils_cargo_bin::cargo_bin("aish").unwrap();
     let mut cmd = AssertCommand::new(bin);
     cmd.arg("exec")
         .arg("-c")
+        .arg(provider_override)
+        .arg("-c")
+        .arg("model_provider=\"mock\"")
+        .arg("-c")
         .arg("model=\"test-model\"")
         .arg("-C")
         .arg(env!("CARGO_MANIFEST_DIR"))
         .arg("hello?");
     cmd.env("AISH_HOME", home.path())
-        .env("OPENAI_API_KEY", "dummy")
-        .env("AISH_RS_SSE_FIXTURE", fixture)
-        .env("OPENAI_BASE_URL", "http://unused.local");
+        .env("AISH_RS_SSE_FIXTURE", fixture);
 
     let output = cmd.output().unwrap();
     assert!(output.status.success());
@@ -223,17 +222,19 @@ async fn integration_creates_and_checks_session_file() -> anyhow::Result<()> {
     // 4. Run the codex CLI and invoke `exec`, which is what records a session.
     let bin = aish_utils_cargo_bin::cargo_bin("aish").unwrap();
     let mut cmd = AssertCommand::new(bin);
+    let provider_override = "model_providers.mock={ name = \"mock\", base_url = \"http://unused.local/v1\", env_key = \"PATH\", wire_api = \"responses\" }";
     cmd.arg("exec")
+        .arg("-c")
+        .arg(provider_override)
+        .arg("-c")
+        .arg("model_provider=\"mock\"")
         .arg("-c")
         .arg("model=\"test-model\"")
         .arg("-C")
         .arg(env!("CARGO_MANIFEST_DIR"))
         .arg(&prompt);
     cmd.env("AISH_HOME", &home_path)
-        .env("OPENAI_API_KEY", "dummy")
-        .env("AISH_RS_SSE_FIXTURE", &fixture)
-        // Required for CLI arg parsing even though fixture short-circuits network usage.
-        .env("OPENAI_BASE_URL", "http://unused.local");
+        .env("AISH_RS_SSE_FIXTURE", &fixture);
 
     let output = cmd.output().unwrap();
     assert!(
@@ -345,7 +346,12 @@ async fn integration_creates_and_checks_session_file() -> anyhow::Result<()> {
     let prompt2 = format!("echo {marker2}");
     let bin2 = aish_utils_cargo_bin::cargo_bin("aish").unwrap();
     let mut cmd2 = AssertCommand::new(bin2);
+    let provider_override = "model_providers.mock={ name = \"mock\", base_url = \"http://unused.local/v1\", env_key = \"PATH\", wire_api = \"responses\" }";
     cmd2.arg("exec")
+        .arg("-c")
+        .arg(provider_override)
+        .arg("-c")
+        .arg("model_provider=\"mock\"")
         .arg("-c")
         .arg("model=\"test-model\"")
         .arg("-C")
@@ -354,9 +360,7 @@ async fn integration_creates_and_checks_session_file() -> anyhow::Result<()> {
         .arg("resume")
         .arg("--last");
     cmd2.env("AISH_HOME", home.path())
-        .env("OPENAI_API_KEY", "dummy")
-        .env("AISH_RS_SSE_FIXTURE", &fixture)
-        .env("OPENAI_BASE_URL", "http://unused.local");
+        .env("AISH_RS_SSE_FIXTURE", &fixture);
 
     let output2 = cmd2.output().unwrap();
     assert!(output2.status.success(), "resume aish run failed");

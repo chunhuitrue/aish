@@ -8,8 +8,6 @@ use aish_common::oss::ensure_oss_provider_ready;
 use aish_common::oss::get_default_model_for_oss_provider;
 use aish_core::INTERACTIVE_SESSION_SOURCES;
 use aish_core::RolloutRecorder;
-use aish_core::auth::read_aish_api_key_from_env;
-use aish_core::auth::read_openai_api_key_from_env;
 use aish_core::config::Config;
 use aish_core::config::ConfigOverrides;
 use aish_core::config::find_codex_home;
@@ -211,20 +209,32 @@ pub async fn run_main(
     // Check if there's a valid model configuration
     // If no model is configured and no API key is available, show a helpful message
     let has_api_key = {
-        read_openai_api_key_from_env().is_some()
-            || read_aish_api_key_from_env().is_some()
+        config.model_provider.experimental_bearer_token.is_some()
             || config
                 .model_provider
                 .env_key
                 .as_ref()
-                .is_some_and(|k| std::env::var(k).is_ok_and(|v| !v.is_empty()))
+                .is_some_and(|k| std::env::var(k).is_ok_and(|v| !v.trim().is_empty()))
     };
     #[allow(clippy::print_stderr)]
     if config.model.is_none() && !has_api_key {
         eprintln!("No API key configured. Please configure one of the following:");
         eprintln!();
-        eprintln!("  1. Set environment variable OPENAI_API_KEY or AISH_API_KEY");
-        eprintln!("  2. Configure model_provider and API key in ~/.aish/config.toml");
+        if let Some(env_key) = &config.model_provider.env_key {
+            eprintln!(
+                "  1. Set environment variable {env_key} (configured via model_providers.{}.env_key)",
+                config.model_provider_id
+            );
+        } else {
+            eprintln!(
+                "  1. Configure model_providers.{}.env_key in ~/.aish/config.toml, then set that environment variable",
+                config.model_provider_id
+            );
+        }
+        eprintln!(
+            "  2. Configure model_providers.{}.experimental_bearer_token in ~/.aish/config.toml",
+            config.model_provider_id
+        );
         eprintln!();
         std::process::exit(1);
     }

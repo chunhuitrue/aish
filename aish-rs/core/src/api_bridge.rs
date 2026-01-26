@@ -101,28 +101,18 @@ pub(crate) async fn auth_provider_from_auth(
     if let Some(api_key) = provider.api_key()? {
         return Ok(CoreAuthProvider {
             token: Some(api_key),
-            account_id: None,
         });
     }
 
     if let Some(token) = provider.experimental_bearer_token.clone() {
-        return Ok(CoreAuthProvider {
-            token: Some(token),
-            account_id: None,
-        });
+        return Ok(CoreAuthProvider { token: Some(token) });
     }
 
     if let Some(auth) = auth {
         let token = auth.get_token().await?;
-        Ok(CoreAuthProvider {
-            token: Some(token),
-            account_id: auth.get_account_id(),
-        })
+        Ok(CoreAuthProvider { token: Some(token) })
     } else {
-        Ok(CoreAuthProvider {
-            token: None,
-            account_id: None,
-        })
+        Ok(CoreAuthProvider { token: None })
     }
 }
 
@@ -142,15 +132,10 @@ struct UsageErrorBody {
 #[derive(Clone, Default)]
 pub(crate) struct CoreAuthProvider {
     token: Option<String>,
-    account_id: Option<String>,
 }
 
 impl ApiAuthProvider for CoreAuthProvider {
     fn bearer_token(&self) -> Option<String> {
         self.token.clone()
-    }
-
-    fn account_id(&self) -> Option<String> {
-        self.account_id.clone()
     }
 }

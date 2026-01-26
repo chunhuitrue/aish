@@ -105,10 +105,11 @@ aish exec --model gpt-5.1 --json resume --last "Fix use-after-free issues"
 
 ## Authentication
 
-By default, `aish exec` will use the same authentication method as Aish CLI and VSCode extension. You can override the api key by setting the `AISH_API_KEY` environment variable.
+By default, `aish exec` uses the active model provider from your Aish configuration (`~/.aish/config.toml`).
 
-```shell
-AISH_API_KEY=your-api-key-here aish exec "Fix merge conflict"
+To authenticate with an environment variable, configure `model_providers.<id>.env_key` for the active provider and export that variable before running `aish exec`:
+
+```bash
+export AISH_MODEL_API_KEY="your-api-key-here"
+aish exec "Fix merge conflict"
 ```
-
-NOTE: `AISH_API_KEY` is only supported in `aish exec`.

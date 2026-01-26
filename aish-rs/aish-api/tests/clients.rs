@@ -96,14 +96,12 @@ impl AuthProvider for NoAuth {
 #[derive(Clone)]
 struct StaticAuth {
     token: String,
-    account_id: String,
 }
 
 impl StaticAuth {
-    fn new(token: &str, account_id: &str) -> Self {
+    fn new(token: &str) -> Self {
         Self {
             token: token.to_string(),
-            account_id: account_id.to_string(),
         }
     }
 }
@@ -111,10 +109,6 @@ impl StaticAuth {
 impl AuthProvider for StaticAuth {
     fn bearer_token(&self) -> Option<String> {
         Some(self.token.clone())
-    }
-
-    fn account_id(&self) -> Option<String> {
-        Some(self.account_id.clone())
     }
 }
 
@@ -254,7 +248,7 @@ async fn responses_client_uses_chat_path_for_chat_wire() -> Result<()> {
 async fn streaming_client_adds_auth_headers() -> Result<()> {
     let state = RecordingState::default();
     let transport = RecordingTransport::new(state.clone());
-    let auth = StaticAuth::new("secret-token", "acct-1");
+    let auth = StaticAuth::new("secret-token");
     let client = ResponsesClient::new(transport, provider("openai", WireApi::Responses), auth);
 
     let body = serde_json::json!({ "model": "gpt-test" });
@@ -270,10 +264,6 @@ async fn streaming_client_adds_auth_headers() -> Result<()> {
         auth_header.unwrap().to_str().ok(),
         Some("Bearer secret-token")
     );
-
-    let account_header = req.headers.get("ChatGPT-Account-ID");
-    assert!(account_header.is_some(), "missing account header");
-    assert_eq!(account_header.unwrap().to_str().ok(), Some("acct-1"));
 
     let accept_header = req.headers.get(http::header::ACCEPT);
     assert!(accept_header.is_some(), "missing Accept header");

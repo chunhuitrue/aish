@@ -72,7 +72,7 @@ model = "gpt-5.1"  # overrides the default ("gpt-5.1-codex-max" across platforms
 This option lets you add to the default set of model providers bundled with Aish. The map key becomes the value you use with `model_provider` to select the provider.
 
 > [!NOTE]
-> Built-in providers are not overwritten when you reuse their key. Entries you add only take effect when the key is **new**; for example `[model_providers.openai]` leaves the original OpenAI definition untouched. To customize the bundled OpenAI provider, prefer the dedicated knobs (for example the `OPENAI_BASE_URL` environment variable) or register a new provider key and point `model_provider` at it.
+> Built-in providers are not overwritten when you reuse their key. Entries you add only take effect when the key is **new**; for example `[model_providers.openai]` leaves the original OpenAI definition untouched. To customize the OpenAI provider (for example to use a different endpoint), register a new provider key and point `model_provider` at it.
 
 For example, if you wanted to add a provider that uses the OpenAI 4o model via the chat completions API, then you could add the following configuration:
 
@@ -178,7 +178,7 @@ How long Aish will wait for activity on a streaming response before treating the
 
 ### model_provider
 
-Identifies which provider to use from the `model_providers` map. Defaults to `"openai"`. You can override the `base_url` for the built-in `openai` provider via the `OPENAI_BASE_URL` environment variable.
+Identifies which provider to use from the `model_providers` map. Defaults to `"openai"`.
 
 Note that if you override `model_provider`, then you likely want to override
 `model`, as well. For example, if you are running ollama with Mistral locally,

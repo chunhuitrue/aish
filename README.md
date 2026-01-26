@@ -8,7 +8,6 @@
 ```
 
 
-# Aish
 Aish is an AI-powered shell assistant designed for command-line environments. If you forget or are unsure how to write complex shell commands while working in the terminal, you can call aish from any directory to get instant assistance. Aish does not need to be executed within a specific project directory.
 
 Before using aish, you need to add a configuration file at `~/.aish/config.toml` with the following template:
