@@ -1102,7 +1102,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn test_parallel_support_flags() {
         let config = test_config();
         let model_family = ModelsManager::construct_model_family_offline("test-model", &config);

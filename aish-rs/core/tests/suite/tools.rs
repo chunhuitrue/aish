@@ -171,7 +171,6 @@ async fn shell_escalated_permissions_rejected_then_ok() -> Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-#[ignore = "test-model uses shell_command, not shell"]
 async fn sandbox_denied_shell_returns_original_output() -> Result<()> {
     skip_if_no_network!(Ok(()));
 
@@ -220,17 +219,12 @@ async fn sandbox_denied_shell_returns_original_output() -> Result<()> {
     let output_text = mock
         .function_call_output_text(call_id)
         .context("shell output present")?;
-    let exit_code_line = output_text
-        .lines()
-        .next()
-        .context("exit code line present")?;
-    let exit_code = exit_code_line
-        .strip_prefix("Exit code: ")
-        .context("exit code prefix present")?
-        .trim()
-        .parse::<i32>()
-        .context("exit code is integer")?;
-    let body = output_text;
+    let output_json: serde_json::Value =
+        serde_json::from_str(&output_text).context("parse shell output json")?;
+    let exit_code = output_json["metadata"]["exit_code"]
+        .as_i64()
+        .context("exit code present")?;
+    let body = output_json["output"].as_str().unwrap_or_default();
 
     let body_lower = body.to_lowercase();
     // Required for multi-OS.

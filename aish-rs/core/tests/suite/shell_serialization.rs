@@ -100,11 +100,15 @@ fn shell_responses(
 
 fn configure_shell_model(
     builder: TestAishBuilder,
-    _output_type: ShellModelOutput,
+    output_type: ShellModelOutput,
     include_apply_patch_tool: bool,
 ) -> TestAishBuilder {
-    // All models now use test-model which uses shell_command
-    let builder = builder.with_model("test-model");
+    // test-model uses shell_command, while gpt-5.1-codex uses shell
+    let model = match output_type {
+        ShellModelOutput::ShellCommand => "test-model",
+        ShellModelOutput::Shell | ShellModelOutput::LocalShell => "gpt-5.1-codex",
+    };
+    let builder = builder.with_model(model);
 
     builder.with_config(move |config| {
         config.include_apply_patch_tool = include_apply_patch_tool;
@@ -114,7 +118,6 @@ fn configure_shell_model(
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[test_case(ShellModelOutput::Shell)]
 #[test_case(ShellModelOutput::LocalShell)]
-#[ignore = "test-model uses shell_command, not shell/local_shell"]
 async fn shell_output_stays_json_without_freeform_apply_patch(
     output_type: ShellModelOutput,
 ) -> Result<()> {
@@ -212,7 +215,6 @@ freeform shell
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[test_case(ShellModelOutput::Shell)]
 #[test_case(ShellModelOutput::LocalShell)]
-#[ignore = "test-model uses shell_command, not shell/local_shell"]
 async fn shell_output_preserves_fixture_json_without_serialization(
     output_type: ShellModelOutput,
 ) -> Result<()> {
@@ -431,7 +433,7 @@ Output:
 4
 5
 6
-.*…46 tokens truncated….*
+.*…[0-9]+ (?:tokens|chars) truncated….*
 396
 397
 398

@@ -135,7 +135,6 @@ async fn remote_compact_replaces_history_for_followups() -> Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-#[ignore = "test-model has no context_window configured; remote compaction depends on token limits"]
 async fn remote_compact_runs_automatically() -> Result<()> {
     skip_if_no_network!(Ok(()));
 
@@ -144,6 +143,7 @@ async fn remote_compact_runs_automatically() -> Result<()> {
             .with_auth(AishAuth::create_dummy_auth_for_testing())
             .with_config(|config| {
                 config.features.enable(Feature::RemoteCompaction);
+                config.model_context_window = Some(100_000);
             }),
     )
     .await?;

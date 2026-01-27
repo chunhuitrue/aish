@@ -628,7 +628,6 @@ async fn includes_default_reasoning_effort_in_request_when_defined_by_model_fami
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-#[ignore = "test-model does not support reasoning summaries; requires model with supports_reasoning_summaries=true"]
 async fn configured_reasoning_summary_is_sent() -> anyhow::Result<()> {
     skip_if_no_network!(Ok(()));
     let server = MockServer::start().await;
@@ -636,6 +635,7 @@ async fn configured_reasoning_summary_is_sent() -> anyhow::Result<()> {
     let resp_mock = mount_sse_once(&server, sse_completed("resp1")).await;
     let TestAish { codex, .. } = test_aish()
         .with_config(|config| {
+            config.model_supports_reasoning_summaries = Some(true);
             config.model_reasoning_summary = ReasoningSummary::Concise;
         })
         .build(&server)

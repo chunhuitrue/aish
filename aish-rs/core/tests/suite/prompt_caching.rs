@@ -63,7 +63,6 @@ fn normalize_newlines(text: &str) -> String {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-#[ignore = "test requires specific model configuration that was removed"]
 async fn prompt_tools_are_consistent_across_requests() -> anyhow::Result<()> {
     skip_if_no_network!(Ok(()));
     use pretty_assertions::assert_eq;
@@ -121,6 +120,10 @@ async fn prompt_tools_are_consistent_across_requests() -> anyhow::Result<()> {
         "read_mcp_resource",
         "update_plan",
         "apply_patch",
+        "grep_files",
+        "read_file",
+        "list_dir",
+        "test_sync_tool",
         "view_image",
     ];
     let body0 = req1.single_request().body_json();

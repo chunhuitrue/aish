@@ -769,7 +769,7 @@ class Bar:
     }
 
     #[tokio::test]
-    #[ignore]
+    #[ignore] // ignore from codex
     async fn indentation_mode_handles_javascript_sample() -> anyhow::Result<()> {
         let mut temp = NamedTempFile::new()?;
         use std::io::Write as _;

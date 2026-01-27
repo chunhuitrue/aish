@@ -378,7 +378,6 @@ async fn tool_call_output_truncated_only_once() -> Result<()> {
 // Verifies that an MCP tool call result exceeding the model formatting limits
 // is truncated before being sent back to the model.
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-#[ignore = "test-model has no truncation_policy configured; requires model with token-based truncation"]
 async fn mcp_tool_call_output_exceeds_limit_truncated_for_model() -> Result<()> {
     skip_if_no_network!(Ok(()));
 

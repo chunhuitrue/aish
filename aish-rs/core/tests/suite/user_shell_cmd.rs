@@ -211,8 +211,9 @@ async fn user_shell_command_history_is_persisted_and_shared_with_model() -> anyh
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[cfg(not(target_os = "windows"))] // TODO: unignore on windows
-#[ignore = "test-model uses char-based truncation; requires model with token-based truncation"]
 async fn user_shell_command_output_is_truncated_in_history() -> anyhow::Result<()> {
+    skip_if_no_network!(Ok(()));
+
     let server = responses::start_mock_server().await;
     let builder = core_test_support::test_aish::test_aish();
     let test = builder

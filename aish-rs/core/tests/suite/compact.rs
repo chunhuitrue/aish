@@ -461,7 +461,6 @@ async fn manual_compact_emits_api_and_local_token_usage_events() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-#[ignore = "test-model has no context_window configured; requires model with known token limits"]
 async fn multiple_auto_compact_per_task_runs_after_token_limit_hit() {
     skip_if_no_network!();
 
@@ -471,6 +470,7 @@ async fn multiple_auto_compact_per_task_runs_after_token_limit_hit() {
     let codex = test_aish()
         .with_config(move |config| {
             config.model_provider.name = non_openai_provider_name;
+            config.model_context_window = Some(100_000);
         })
         .build(&server)
         .await

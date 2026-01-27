@@ -138,7 +138,6 @@ fn normalize_compact_prompts(requests: &mut [Value]) {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-#[ignore = "test requires specific model configuration that was removed"]
 /// Scenario: compact an initial conversation, resume it, fork one turn back, and
 /// ensure the model-visible history matches expectations at each request.
 async fn compact_resume_and_fork_preserve_model_history_view() {
@@ -275,12 +274,16 @@ async fn compact_resume_and_fork_preserve_model_history_view() {
       ],
       "tools": tool_calls,
       "tool_choice": "auto",
-      "parallel_tool_calls": false,
+      "parallel_tool_calls": true,
       "reasoning": {
-        "summary": "auto"
+        "summary": "auto",
+        "effort": "medium"
       },
       "store": false,
       "stream": true,
+      "text": {
+        "verbosity": "low"
+      },
       "include": [
         "reasoning.encrypted_content"
       ],
@@ -346,10 +349,14 @@ async fn compact_resume_and_fork_preserve_model_history_view() {
       "tool_choice": "auto",
       "parallel_tool_calls": false,
       "reasoning": {
-        "summary": "auto"
+        "summary": "auto",
+        "effort": "medium"
       },
       "store": false,
       "stream": true,
+      "text": {
+        "verbosity": "low"
+      },
       "include": [
         "reasoning.encrypted_content"
       ],
@@ -404,12 +411,16 @@ async fn compact_resume_and_fork_preserve_model_history_view() {
       ],
       "tools": tool_calls,
       "tool_choice": "auto",
-      "parallel_tool_calls": false,
+      "parallel_tool_calls": true,
       "reasoning": {
-        "summary": "auto"
+        "summary": "auto",
+        "effort": "medium"
       },
       "store": false,
       "stream": true,
+      "text": {
+        "verbosity": "low"
+      },
       "include": [
         "reasoning.encrypted_content"
       ],
@@ -484,12 +495,16 @@ async fn compact_resume_and_fork_preserve_model_history_view() {
       ],
       "tools": tool_calls,
       "tool_choice": "auto",
-      "parallel_tool_calls": false,
+      "parallel_tool_calls": true,
       "reasoning": {
-        "summary": "auto"
+        "summary": "auto",
+        "effort": "medium"
       },
       "store": false,
       "stream": true,
+      "text": {
+        "verbosity": "low"
+      },
       "include": [
         "reasoning.encrypted_content"
       ],
@@ -564,12 +579,16 @@ async fn compact_resume_and_fork_preserve_model_history_view() {
       ],
       "tools": tool_calls,
       "tool_choice": "auto",
-      "parallel_tool_calls": false,
+      "parallel_tool_calls": true,
       "reasoning": {
-        "summary": "auto"
+        "summary": "auto",
+        "effort": "medium"
       },
       "store": false,
       "stream": true,
+      "text": {
+        "verbosity": "low"
+      },
       "include": [
         "reasoning.encrypted_content"
       ],
