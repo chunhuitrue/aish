@@ -145,7 +145,7 @@ jobs:
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain-file: aish-rs/rust-toolchain.toml
-          target: ${{ matrix.target }}
+          targets: ${{ matrix.target }}
           components: clippy
           cache: false
 
