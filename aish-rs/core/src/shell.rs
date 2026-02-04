@@ -328,7 +328,8 @@ mod detect_shell_type_tests {
 #[cfg(unix)]
 mod tests {
     use super::*;
-    use std::path::{Path, PathBuf};
+    use std::path::Path;
+    use std::path::PathBuf;
     use std::process::Command;
 
     #[test]

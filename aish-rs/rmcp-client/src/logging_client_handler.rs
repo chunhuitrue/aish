@@ -4,7 +4,7 @@ use rmcp::ClientHandler;
 use rmcp::RoleClient;
 use rmcp::model::CancelledNotificationParam;
 use rmcp::model::ClientInfo;
-use rmcp::model::CreateElicitationRequestParam;
+use rmcp::model::CreateElicitationRequestParams;
 use rmcp::model::CreateElicitationResult;
 use rmcp::model::LoggingLevel;
 use rmcp::model::LoggingMessageNotificationParam;
@@ -13,10 +13,7 @@ use rmcp::model::RequestId;
 use rmcp::model::ResourceUpdatedNotificationParam;
 use rmcp::service::NotificationContext;
 use rmcp::service::RequestContext;
-use tracing::debug;
-use tracing::error;
 use tracing::info;
-use tracing::warn;
 
 use crate::rmcp_client::SendElicitation;
 
@@ -38,7 +35,7 @@ impl LoggingClientHandler {
 impl ClientHandler for LoggingClientHandler {
     async fn create_elicitation(
         &self,
-        request: CreateElicitationRequestParam,
+        request: CreateElicitationRequestParams,
         context: RequestContext<RoleClient>,
     ) -> Result<CreateElicitationResult, rmcp::ErrorData> {
         let id = match context.id {
@@ -50,34 +47,41 @@ impl ClientHandler for LoggingClientHandler {
             .map_err(|err| rmcp::ErrorData::internal_error(err.to_string(), None))
     }
 
-    async fn on_cancelled(
+    async fn on_logging_message(
         &self,
-        params: CancelledNotificationParam,
+        params: LoggingMessageNotificationParam,
         _context: NotificationContext<RoleClient>,
     ) {
-        info!(
-            "MCP server cancelled request (request_id: {}, reason: {:?})",
-            params.request_id, params.reason
-        );
+        match params.level {
+            LoggingLevel::Debug => tracing::debug!("{}", params.data),
+            LoggingLevel::Info => tracing::info!("{}", params.data),
+            LoggingLevel::Notice | LoggingLevel::Warning => tracing::warn!("{}", params.data),
+            LoggingLevel::Error
+            | LoggingLevel::Critical
+            | LoggingLevel::Alert
+            | LoggingLevel::Emergency => tracing::error!("{}", params.data),
+        }
     }
 
     async fn on_progress(
         &self,
-        params: ProgressNotificationParam,
+        _params: ProgressNotificationParam,
         _context: NotificationContext<RoleClient>,
     ) {
-        info!(
-            "MCP server progress notification (token: {:?}, progress: {}, total: {:?}, message: {:?})",
-            params.progress_token, params.progress, params.total, params.message
-        );
     }
 
     async fn on_resource_updated(
         &self,
-        params: ResourceUpdatedNotificationParam,
+        _params: ResourceUpdatedNotificationParam,
         _context: NotificationContext<RoleClient>,
     ) {
-        info!("MCP server resource updated (uri: {})", params.uri);
+    }
+
+    async fn on_cancelled(
+        &self,
+        _params: CancelledNotificationParam,
+        _context: NotificationContext<RoleClient>,
+    ) {
     }
 
     async fn on_resource_list_changed(&self, _context: NotificationContext<RoleClient>) {
@@ -94,47 +98,5 @@ impl ClientHandler for LoggingClientHandler {
 
     fn get_info(&self) -> ClientInfo {
         self.client_info.clone()
-    }
-
-    async fn on_logging_message(
-        &self,
-        params: LoggingMessageNotificationParam,
-        _context: NotificationContext<RoleClient>,
-    ) {
-        let LoggingMessageNotificationParam {
-            level,
-            logger,
-            data,
-        } = params;
-        let logger = logger.as_deref();
-        match level {
-            LoggingLevel::Emergency
-            | LoggingLevel::Alert
-            | LoggingLevel::Critical
-            | LoggingLevel::Error => {
-                error!(
-                    "MCP server log message (level: {:?}, logger: {:?}, data: {})",
-                    level, logger, data
-                );
-            }
-            LoggingLevel::Warning => {
-                warn!(
-                    "MCP server log message (level: {:?}, logger: {:?}, data: {})",
-                    level, logger, data
-                );
-            }
-            LoggingLevel::Notice | LoggingLevel::Info => {
-                info!(
-                    "MCP server log message (level: {:?}, logger: {:?}, data: {})",
-                    level, logger, data
-                );
-            }
-            LoggingLevel::Debug => {
-                debug!(
-                    "MCP server log message (level: {:?}, logger: {:?}, data: {})",
-                    level, logger, data
-                );
-            }
-        }
     }
 }
