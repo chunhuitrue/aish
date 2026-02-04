@@ -59,11 +59,9 @@ jobs:
         working-directory: aish-rs
     steps:
       - uses: actions/checkout@v6
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: dtolnay/rust-toolchain@1.93
         with:
-          toolchain-file: aish-rs/rust-toolchain.toml
           components: rustfmt
-          cache: false # 禁用内置缓存，因为下面已经有自定义缓存逻辑了
       - name: cargo fmt
         run: cargo fmt -- --config imports_granularity=Item --check
       - name: Verify codegen for mcp-types
@@ -79,10 +77,7 @@ jobs:
         working-directory: aish-rs
     steps:
       - uses: actions/checkout@v6
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          toolchain-file: aish-rs/rust-toolchain.toml
-          cache: false
+      - uses: dtolnay/rust-toolchain@1.93
       - uses: taiki-e/install-action@650c5ca14212efbbf3e580844b04bdccf68dac31 # v2
         with:
           tool: cargo-shear
@@ -142,12 +137,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: dtolnay/rust-toolchain@1.93
         with:
-          toolchain-file: aish-rs/rust-toolchain.toml
           targets: ${{ matrix.target }}
           components: clippy
-          cache: false
 
       - name: Compute lockfile hash
         id: lockhash
@@ -379,7 +372,7 @@ jobs:
       - name: Install DotSlash
         uses: facebook/install-dotslash@v2
 
-      - uses: dtolnay/rust-toolchain@1.90
+      - uses: dtolnay/rust-toolchain@1.93
         with:
           targets: ${{ matrix.target }}
 
