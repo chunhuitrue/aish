@@ -113,7 +113,7 @@ If you don’t have the tool:
   // assert using request.function_call_output(call_id) or request.json_body() or other helpers.
   ```
 
-### Code Modification Requirements
+### Code Modification Protocol
 - Make minimal changes to the code each time; do not alter other functionalities.
 - After making changes
   - run `just fmt`
@@ -121,3 +121,8 @@ If you don’t have the tool:
   - Run `cargo clippy --workspace --all-targets` to ensure there are no warnings.
   - Run `cargo test --all-features` to ensure all test cases in the project pass.
 - All outputs, logs, and comments in the code must be in English.
+
+### Code Review Workflow
+- Provide review results directly in conversation, not as separate report files
+- Focus on actionable findings: missing changes, potential bugs, and test coverage
+- Run validation commands (cargo check, clippy, test) before declaring review complete
