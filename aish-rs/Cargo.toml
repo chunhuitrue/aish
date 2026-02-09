@@ -136,7 +136,7 @@ pulldown-cmark = "0.10"
 rand = "0.9"
 ratatui = "0.29.0"
 regex = "1.12.2"
-regex-lite = "0.1.7"
+regex-lite = "0.1.9"
 reqwest = "0.12"
 rmcp = { version = "0.14.0", default-features = false }
 schemars = "0.8.22"
