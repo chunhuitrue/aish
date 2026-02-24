@@ -96,16 +96,6 @@ aish --cd apps/frontend --add-dir ../backend --add-dir ../shared
 
 Aish can then inspect and edit files in each listed directory without leaving the primary workspace.
 
-#### Shell completions
-
-Generate shell completion scripts via:
-
-```shell
-aish completion bash
-aish completion zsh
-aish completion fish
-```
-
 #### Image input
 
 Paste images directly into the composer (Ctrl+V / Cmd+V) to attach them to your prompt. You can also attach files via the CLI using `-i/--image` (comma‑separated):

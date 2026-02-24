@@ -8,10 +8,6 @@ updates:
       - aish-rs/*
     schedule:
       interval: weekly
-  - package-ecosystem: devcontainers
-    directory: /
-    schedule:
-      interval: weekly
   - package-ecosystem: github-actions
     directory: /
     schedule:
@@ -19,4 +15,4 @@ updates:
   - package-ecosystem: rust-toolchain
     directory: aish-rs
     schedule:
-      interval: weekly
+      interval: monthly
