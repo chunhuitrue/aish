@@ -2180,13 +2180,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0ce92ff622d6dadf7349484f42c93271a0d49b7cc4d466a936405bacbe10aa78"
 dependencies = [
  "cfg-if",
-<<<<<<< HEAD
  "rustix 1.1.4",
  "windows-sys 0.59.0",
-=======
- "rustix 1.0.8",
- "windows-sys 0.52.0",
->>>>>>> pr-100
 ]
 
 [[package]]
@@ -4738,13 +4733,8 @@ dependencies = [
  "bitflags 2.10.0",
  "errno",
  "libc",
-<<<<<<< HEAD
  "linux-raw-sys 0.12.1",
  "windows-sys 0.61.1",
-=======
- "linux-raw-sys 0.9.4",
- "windows-sys 0.52.0",
->>>>>>> pr-100
 ]
 
 [[package]]
