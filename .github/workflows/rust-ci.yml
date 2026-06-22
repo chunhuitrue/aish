@@ -17,7 +17,7 @@ jobs:
       aish: ${{ steps.detect.outputs.aish }}
       workflows: ${{ steps.detect.outputs.workflows }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Detect changed paths (no external action)
@@ -58,7 +58,7 @@ jobs:
       run:
         working-directory: aish-rs
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@1.93.0
         with:
           components: rustfmt
@@ -76,7 +76,7 @@ jobs:
       run:
         working-directory: aish-rs
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@1.93.0
       - uses: taiki-e/install-action@d9be7d8cda89035c9c843f78bd44d4f72d8403d4 # v2
         with:
@@ -136,7 +136,7 @@ jobs:
             profile: release
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@1.93.0
         with:
           targets: ${{ matrix.target }}
@@ -350,7 +350,7 @@ jobs:
             profile: dev
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       # We have been running out of space when running this job on Linux for
       # x86_64-unknown-linux-gnu, so remove some unnecessary dependencies.
